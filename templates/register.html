@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Register - Digital Wallet Tracker</title>
+
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-auth-compat.js"></script>
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Inter', sans-serif;
+      background: linear-gradient(120deg, #f8f9fa, #e3f2fd);
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .register-container {
+      background: white;
+      padding: 40px;
+      border-radius: 12px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+      width: 400px;
+      text-align: center;
+    }
+
+    h2 {
+      margin-bottom: 20px;
+      color: #333;
+    }
+
+    .form-group {
+      margin-bottom: 15px;
+      text-align: left;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 5px;
+      color: #555;
+      font-weight: 500;
+    }
+
+    input[type="text"], input[type="email"], input[type="password"] {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 14px;
+      box-sizing: border-box;
+    }
+
+    input[type="text"]:focus, input[type="email"]:focus, input[type="password"]:focus {
+      outline: none;
+      border-color: #007bff;
+      box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+    }
+
+    .error-message {
+      color: #dc3545;
+      font-size: 12px;
+      margin-top: 5px;
+      display: none;
+    }
+
+    .success-message {
+      color: #28a745;
+      font-size: 12px;
+      margin-top: 5px;
+      display: none;
+    }
+
+    button {
+      width: 100%;
+      padding: 12px;
+      margin-top: 20px;
+      border: none;
+      border-radius: 6px;
+      background-color: #007bff;
+      color: white;
+      font-weight: bold;
+      font-size: 16px;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+
+    button:hover {
+      background-color: #0056b3;
+    }
+
+    button:disabled {
+      background-color: #6c757d;
+      cursor: not-allowed;
+    }
+
+    .login-link {
+      margin-top: 20px;
+      color: #666;
+    }
+
+    .login-link a {
+      color: #007bff;
+      text-decoration: none;
+    }
+
+    .login-link a:hover {
+      text-decoration: underline;
+    }
+
+    .separator {
+      margin: 20px 0;
+      font-weight: bold;
+      color: #888;
+    }
+
+    .google-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-color: white;
+      color: #555;
+      border: 1px solid #ddd;
+      padding: 10px;
+      font-size: 15px;
+      font-weight: 500;
+      border-radius: 6px;
+      cursor: pointer;
+      width: 100%;
+      transition: background 0.2s;
+      margin-bottom: 20px;
+    }
+
+    .google-btn img {
+      width: 20px;
+      margin-right: 10px;
+    }
+
+    .google-btn:hover {
+      background-color: #f1f1f1;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="register-container">
+    <h2>Create Your Account</h2>
+
+    <!-- Google Sign Up -->
+    <button class="google-btn" onclick="googleSignUp()">
+      <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/5/53/Google_%22G%22_Logo.svg/512px-Google_%22G%22_Logo.svg.png" alt="Google Logo">
+      Sign up with Google
+    </button>
+
+    <div class="separator">OR</div>
+
+    <!-- Registration Form -->
+    <form id="registerForm" onsubmit="emailRegister(event)">
+      <div class="form-group">
+        <label for="fullName">Full Name</label>
+        <input type="text" id="fullName" name="fullName" required>
+        <div class="error-message" id="nameError"></div>
+      </div>
+
+      <div class="form-group">
+        <label for="email">Email Address</label>
+        <input type="email" id="email" name="email" required>
+        <div class="error-message" id="emailError"></div>
+      </div>
+
+      <div class="form-group">
+        <label for="password">Password</label>
+        <input type="password" id="password" name="password" required minlength="6">
+        <div class="error-message" id="passwordError"></div>
+        <div class="success-message" id="passwordSuccess"></div>
+      </div>
+
+      <div class="form-group">
+        <label for="confirmPassword">Confirm Password</label>
+        <input type="password" id="confirmPassword" name="confirmPassword" required>
+        <div class="error-message" id="confirmPasswordError"></div>
+        <div class="success-message" id="confirmPasswordSuccess"></div>
+      </div>
+
+      <button type="submit" id="registerBtn">Create Account</button>
+    </form>
+
+    <div class="login-link">
+      Already have an account? <a href="/">Sign In</a>
+    </div>
+  </div>
+
+  <script>
+    // Firebase Configuration
+    const firebaseConfig = {
+      apiKey: "AIzaSyDA_aQBeAXifXpvh_JocVGsdI6s5LzbQTs",
+      authDomain: "digitalwallettracker2.firebaseapp.com",
+      projectId: "digitalwallettracker2",
+      storageBucket: "digitalwallettracker2.firebasestorage.app",
+      messagingSenderId: "433415034796",
+      appId: "1:433415034796:web:06e31cf1bd752581b88c09",
+      measurementId: "G-X6VDBM658K"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const provider = new firebase.auth.GoogleAuthProvider();
+
+    // Password validation
+    document.getElementById('password').addEventListener('input', function() {
+      const password = this.value;
+      const errorDiv = document.getElementById('passwordError');
+      const successDiv = document.getElementById('passwordSuccess');
+      
+      if (password.length >= 6) {
+        errorDiv.style.display = 'none';
+        successDiv.textContent = 'Password strength: Good';
+        successDiv.style.display = 'block';
+      } else if (password.length > 0) {
+        errorDiv.textContent = 'Password must be at least 6 characters long';
+        errorDiv.style.display = 'block';
+        successDiv.style.display = 'none';
+      } else {
+        errorDiv.style.display = 'none';
+        successDiv.style.display = 'none';
+      }
+    });
+
+    // Confirm password validation
+    document.getElementById('confirmPassword').addEventListener('input', function() {
+      const password = document.getElementById('password').value;
+      const confirmPassword = this.value;
+      const errorDiv = document.getElementById('confirmPasswordError');
+      const successDiv = document.getElementById('confirmPasswordSuccess');
+      
+      if (confirmPassword && password === confirmPassword) {
+        errorDiv.style.display = 'none';
+        successDiv.textContent = 'Passwords match';
+        successDiv.style.display = 'block';
+      } else if (confirmPassword) {
+        errorDiv.textContent = 'Passwords do not match';
+        errorDiv.style.display = 'block';
+        successDiv.style.display = 'none';
+      } else {
+        errorDiv.style.display = 'none';
+        successDiv.style.display = 'none';
+      }
+    });
+
+    function setSessionAndRedirectWithToken(idToken, userData) {
+      fetch('/sessionLogin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          idToken: idToken,
+          userData: userData
+        })
+      })
+      .then(res => {
+        if (!res.ok) throw new Error("Session failed");
+        return res.json();
+      })
+      .then(() => {
+        window.location.href = "/tpg";
+      })
+      .catch(error => {
+        alert("Session failed: " + error.message);
+      });
+    }
+
+    function googleSignUp() {
+      firebase.auth().signInWithPopup(provider)
+        .then(result => {
+          const user = result.user;
+          const userData = {
+            name: user.displayName || '',
+            email: user.email,
+            photoURL: user.photoURL || ''
+          };
+          return user.getIdToken().then(idToken => ({ idToken, userData }));
+        })
+        .then(({ idToken, userData }) => {
+          setSessionAndRedirectWithToken(idToken, userData);
+        })
+        .catch(error => {
+          alert("Google Sign-Up failed: " + error.message);
+        });
+    }
+
+    function emailRegister(event) {
+      event.preventDefault();
+      
+      const fullName = document.getElementById("fullName").value.trim();
+      const email = document.getElementById("email").value.trim();
+      const password = document.getElementById("password").value;
+      const confirmPassword = document.getElementById("confirmPassword").value;
+      
+      // Clear previous errors
+      document.querySelectorAll('.error-message').forEach(el => el.style.display = 'none');
+      
+      // Validate form
+      let isValid = true;
+      
+      if (!fullName) {
+        document.getElementById('nameError').textContent = 'Full name is required';
+        document.getElementById('nameError').style.display = 'block';
+        isValid = false;
+      }
+      
+      if (!email) {
+        document.getElementById('emailError').textContent = 'Email is required';
+        document.getElementById('emailError').style.display = 'block';
+        isValid = false;
+      }
+      
+      if (password.length < 6) {
+        document.getElementById('passwordError').textContent = 'Password must be at least 6 characters long';
+        document.getElementById('passwordError').style.display = 'block';
+        isValid = false;
+      }
+      
+      if (password !== confirmPassword) {
+        document.getElementById('confirmPasswordError').textContent = 'Passwords do not match';
+        document.getElementById('confirmPasswordError').style.display = 'block';
+        isValid = false;
+      }
+      
+      if (!isValid) return;
+      
+      // Disable submit button
+      const registerBtn = document.getElementById('registerBtn');
+      registerBtn.disabled = true;
+      registerBtn.textContent = 'Creating Account...';
+      
+      firebase.auth().createUserWithEmailAndPassword(email, password)
+        .then(result => {
+          // Update user profile with display name
+          return result.user.updateProfile({
+            displayName: fullName
+          }).then(() => result.user);
+        })
+        .then(user => {
+          const userData = {
+            name: fullName,
+            email: email,
+            photoURL: ''
+          };
+          return user.getIdToken().then(idToken => ({ idToken, userData }));
+        })
+        .then(({ idToken, userData }) => {
+          setSessionAndRedirectWithToken(idToken, userData);
+        })
+        .catch(error => {
+          alert("Registration failed: " + error.message);
+          registerBtn.disabled = false;
+          registerBtn.textContent = 'Create Account';
+        });
+    }
+  </script>
+
+</body>
+</html>

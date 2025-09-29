@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Login - Digital Wallet Tracker</title>
+
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-auth-compat.js"></script>
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Inter', sans-serif;
+      background: linear-gradient(120deg, #f8f9fa, #e3f2fd);
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .login-container {
+      background: white;
+      padding: 40px;
+      border-radius: 12px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+      width: 360px;
+      text-align: center;
+    }
+
+    h2 {
+      margin-bottom: 20px;
+      color: #333;
+    }
+
+    .google-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-color: white;
+      color: #555;
+      border: 1px solid #ddd;
+      padding: 10px;
+      font-size: 15px;
+      font-weight: 500;
+      border-radius: 4px;
+      cursor: pointer;
+      width: 100%;
+      transition: background 0.2s;
+      margin-bottom: 20px;
+    }
+
+    .google-btn img {
+      width: 20px;
+      margin-right: 10px;
+    }
+
+    .google-btn:hover {
+      background-color: #f1f1f1;
+    }
+
+    input[type="email"], input[type="password"] {
+      width: 100%;
+      padding: 10px;
+      margin-bottom: 12px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+
+    button {
+      width: 100%;
+      padding: 10px;
+      margin-top: 10px;
+      margin-bottom: 10px;
+      border: none;
+      border-radius: 4px;
+      background-color: #007bff;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #0056b3;
+    }
+
+    .separator {
+      margin: 15px 0;
+      font-weight: bold;
+      color: #888;
+    }
+
+    .dual-btns {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+    }
+
+    .login-link {
+      margin-top: 20px;
+      color: #666;
+    }
+
+    .login-link a {
+      color: #007bff;
+      text-decoration: none;
+    }
+
+    .login-link a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="login-container">
+    <h2>Login to Digital Wallet Tracker</h2>
+
+    <!-- Google Sign In -->
+    <button class="google-btn" onclick="googleSignIn()">
+      <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/5/53/Google_%22G%22_Logo.svg/512px-Google_%22G%22_Logo.svg.png" alt="Google Logo">
+      Sign in with Google
+    </button>
+
+    <div class="separator">OR</div>
+
+    <!-- Email/Password Fields -->
+    <input type="email" id="email" placeholder="Email" required>
+    <input type="password" id="password" placeholder="Password" required>
+
+    <div class="dual-btns">
+      <button onclick="emailLogin()">Sign In</button>
+    </div>
+    
+    <div class="login-link">
+      Don't have an account? <a href="/register">Sign Up</a>
+    </div>
+  </div>
+
+  <script>
+    // Firebase Configuration
+    const firebaseConfig = {
+      apiKey: "AIzaSyDA_aQBeAXifXpvh_JocVGsdI6s5LzbQTs",
+      authDomain: "digitalwallettracker2.firebaseapp.com",
+      projectId: "digitalwallettracker2",
+      storageBucket: "digitalwallettracker2.firebasestorage.app",
+      messagingSenderId: "433415034796",
+      appId: "1:433415034796:web:06e31cf1bd752581b88c09",
+      measurementId: "G-X6VDBM658K"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const provider = new firebase.auth.GoogleAuthProvider();
+
+    function setSessionAndRedirectWithToken(idToken) {
+  fetch('/sessionLogin', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ idToken: idToken })
+  })
+  .then(res => {
+    if (!res.ok) throw new Error("Session failed");
+    return res.json();
+  })
+  .then(() => {
+    window.location.href = "/tpg";  // ✅ This hits the Flask route
+  })
+  .catch(error => {
+    alert("Session failed: " + error.message);
+  });
+}
+
+
+    function googleSignIn() {
+  firebase.auth().signInWithPopup(provider)
+    .then(result => result.user.getIdToken())
+    .then(idToken => {
+      setSessionAndRedirectWithToken(idToken);
+    })
+    .catch(error => {
+      alert("Google Sign-In failed: " + error.message);
+    });
+}
+
+
+    function emailLogin() {
+      const email = document.getElementById("email").value;
+      const password = document.getElementById("password").value;
+      firebase.auth().signInWithEmailAndPassword(email, password)
+        .then(result => result.user.getIdToken())
+        .then(idToken => {
+          setSessionAndRedirectWithToken(idToken);
+        })
+        .catch(error => {
+          alert("Login failed: " + error.message);
+        });
+    }
+
+  </script>
+
+</body>
+</html>

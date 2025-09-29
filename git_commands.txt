@@ -1,0 +1,15 @@
+# Initialize git repository
+git init
+
+# Add all files to git
+git add .
+
+# Make first commit
+git commit -m "Initial commit: UPI FinAnalyzer with OCR and Firebase"
+
+# Add remote repository (replace YOUR_USERNAME with your GitHub username)
+git remote add origin https://github.com/YOUR_USERNAME/upi-finanalyzer.git
+
+# Push to GitHub
+git branch -M main
+git push -u origin main

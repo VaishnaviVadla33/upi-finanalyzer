@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: upi-finanalyzer
+    env: python
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "gunicorn app:app --host 0.0.0.0 --port $PORT --workers 1 --timeout 120"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.10.0
+      - key: FLASK_ENV
+        value: production
+      - key: TESSDATA_PREFIX
+        value: /usr/share/tesseract-ocr/5/tessdata/
+    plan: free

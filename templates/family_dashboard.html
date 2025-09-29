@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Family Dashboard</title>
+</head>
+<body>
+    <h1>Welcome to the Family Dashboard!</h1>
+    <p>This is your shared family view.</p>
+
+    <h2>Your Family Code: {{ family_code }}</h2>
+
+    <h3>Family Members:</h3>
+    <ul>
+      {% for member in members %}
+        <li>{{ member }}</li>
+      {% endfor %}
+    </ul>
+
+    <!-- You can optionally add more dashboard details here -->
+</body>
+</html>

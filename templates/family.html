@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Connect to Family</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f0f0f0;
+      padding: 50px;
+      text-align: center;
+    }
+    .box {
+      background: #fff;
+      border-radius: 10px;
+      padding: 30px;
+      width: 300px;
+      margin: auto;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    input, button {
+      margin: 10px 0;
+      padding: 10px;
+      width: 90%;
+    }
+    button {
+      background-color: #007bff;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #0056b3;
+    }
+  </style>
+</head>
+<body>
+  <div class="box">
+    <h2>Connect to Family</h2>
+
+    <!-- Create Family Button -->
+    <button id="create-family-btn">Create New Family</button>
+
+    <hr>
+
+    <!-- Join Family Form -->
+    <form action="/join-family" method="POST">
+      <input type="text" name="family_code" placeholder="Enter Family Code" required>
+      <button type="submit">Join Family</button>
+    </form>
+  </div>
+
+  <script>
+  
+  // Handle Create Family button click
+  document.getElementById('create-family-btn').addEventListener('click', () => {
+    fetch('/create-family', {
+      method: 'POST'
+    })
+    .then(response => {
+      if (!response.ok) throw new Error("Failed to create family.");
+      alert("Invite code has been sent to your email.");
+    })
+    .catch(error => {
+      alert("Error creating family.");
+      console.error(error);
+    });
+  });
+
+  // 🔄 Check if user already joined a family
+  window.addEventListener('DOMContentLoaded', () => {
+    fetch('/check-family-status')
+      .then(res => res.json())
+      .then(data => {
+        if (data.joined) {
+          // Redirect to dashboard if already joined
+          window.location.href = '/family_dashboard';
+        }
+      })
+      .catch(err => {
+        console.error('Error checking family status:', err);
+      });
+  });
+</script>
+
+</body>
+</html>
