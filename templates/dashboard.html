@@ -1,0 +1,307 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - FinAnalyzer{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-4" style="margin-bottom: var(--space-8);">
+    <div class="stat-card">
+        <div class="stat-icon">
+            <i class="fas fa-arrow-up"></i>
+        </div>
+        <div class="stat-value" id="totalIncome">₹0</div>
+        <div class="stat-label">Total Income</div>
+    </div>
+    
+    <div class="stat-card">
+        <div class="stat-icon">
+            <i class="fas fa-arrow-down"></i>
+        </div>
+        <div class="stat-value" id="totalExpenses">₹0</div>
+        <div class="stat-label">Total Expenses</div>
+    </div>
+    
+    <div class="stat-card">
+        <div class="stat-icon">
+            <i class="fas fa-wallet"></i>
+        </div>
+        <div class="stat-value" id="balance">₹0</div>
+        <div class="stat-label">Balance</div>
+    </div>
+    
+    <div class="stat-card">
+        <div class="stat-icon">
+            <i class="fas fa-chart-line"></i>
+        </div>
+        <div class="stat-value" id="transactionCount">0</div>
+        <div class="stat-label">Transactions</div>
+    </div>
+</div>
+
+<div class="grid grid-cols-2" style="margin-bottom: var(--space-8);">
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Spending by Category</h3>
+        </div>
+        <canvas id="categoryChart" width="400" height="200" style="max-height: 200px;"></canvas>
+    </div>
+    
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Monthly Trend</h3>
+        </div>
+        <canvas id="trendChart" width="400" height="200" style="max-height: 200px;"></canvas>
+    </div>
+</div>
+
+<div class="grid grid-cols-2">
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Recent Transactions</h3>
+            <a href="/history" class="btn btn-outline" style="padding: var(--space-2) var(--space-4); font-size: var(--font-size-sm);">
+                View All
+            </a>
+        </div>
+        <div id="recentTransactions">
+            <div style="text-align: center; color: var(--text-secondary); padding: var(--space-8);">
+                <i class="fas fa-spinner fa-spin" style="font-size: var(--font-size-xl);"></i>
+                <p style="margin-top: var(--space-4);">Loading transactions...</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Quick Actions</h3>
+        </div>
+        <div class="grid grid-cols-1" style="gap: var(--space-4);">
+            <a href="/upload" class="btn btn-primary" style="justify-content: flex-start;">
+                <i class="fas fa-cloud-upload-alt"></i>
+                Upload Transaction
+            </a>
+            <a href="/analytics" class="btn btn-outline" style="justify-content: flex-start;">
+                <i class="fas fa-chart-bar"></i>
+                View Analytics
+            </a>
+            <a href="/group" class="btn btn-outline" style="justify-content: flex-start;">
+                <i class="fas fa-users"></i>
+                Manage Group
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let categoryChart, trendChart;
+    
+    async function loadDashboardData() {
+        try {
+            // Load main dashboard data
+            const response = await fetch('/api/dashboard-data');
+            const result = await response.json();
+            
+            if (result.success) {
+                const data = result.data;
+                
+                // Update stats
+                document.getElementById('totalIncome').textContent = `₹${data.total_income.toLocaleString()}`;
+                document.getElementById('totalExpenses').textContent = `₹${data.total_expenses.toLocaleString()}`;
+                document.getElementById('balance').textContent = `₹${data.balance.toLocaleString()}`;
+                document.getElementById('transactionCount').textContent = data.recent_transactions.length;
+                
+                // Update recent transactions
+                updateRecentTransactions(data.recent_transactions);
+            }
+            
+            // Load spending categories
+            const categoriesResponse = await fetch('/api/spending-categories');
+            const categoriesResult = await categoriesResponse.json();
+            
+            if (categoriesResult.success) {
+                updateCategoryChart(categoriesResult.data);
+            }
+            
+        } catch (error) {
+            console.error('Error loading dashboard data:', error);
+        }
+    }
+    
+    function updateRecentTransactions(transactions) {
+        const container = document.getElementById('recentTransactions');
+        
+        if (transactions.length === 0) {
+            container.innerHTML = `
+                <div style="text-align: center; color: var(--text-secondary); padding: var(--space-8);">
+                    <i class="fas fa-receipt" style="font-size: var(--font-size-2xl); margin-bottom: var(--space-4);"></i>
+                    <p>No transactions yet</p>
+                    <a href="/upload" class="btn btn-primary" style="margin-top: var(--space-4);">
+                        Upload First Transaction
+                    </a>
+                </div>
+            `;
+            return;
+        }
+        
+        const transactionsList = transactions.slice(0, 5).map(transaction => {
+            const isCredit = transaction.payment_type === 'credit';
+            const icon = isCredit ? 'fa-arrow-up' : 'fa-arrow-down';
+            const color = isCredit ? '#10b981' : '#ef4444';
+            
+            return `
+                <div style="display: flex; align-items: center; justify-content: space-between; padding: var(--space-3) 0; border-bottom: 1px solid var(--border);">
+                    <div style="display: flex; align-items: center; gap: var(--space-3);">
+                        <div style="width: 40px; height: 40px; background: ${color}20; border-radius: var(--radius-lg); display: flex; align-items: center; justify-content: center;">
+                            <i class="fas ${icon}" style="color: ${color};"></i>
+                        </div>
+                        <div>
+                            <div style="font-weight: 500; color: var(--text-primary);">${transaction.name || 'Unknown'}</div>
+                            <div style="font-size: var(--font-size-sm); color: var(--text-secondary);">${transaction.payee_type || 'Other'}</div>
+                        </div>
+                    </div>
+                    <div style="text-align: right;">
+                        <div style="font-weight: 600; color: ${color};">
+                            ${isCredit ? '+' : '-'}₹${transaction.amount.toLocaleString()}
+                        </div>
+                        <div style="font-size: var(--font-size-sm); color: var(--text-secondary);">
+                            ${new Date(transaction.date).toLocaleDateString()}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+        
+        container.innerHTML = transactionsList;
+    }
+    
+    function updateCategoryChart(categories) {
+        const ctx = document.getElementById('categoryChart').getContext('2d');
+        
+        if (categoryChart) {
+            categoryChart.destroy();
+        }
+        
+        const labels = Object.keys(categories);
+        const data = Object.values(categories);
+        
+        if (labels.length === 0) {
+            ctx.fillStyle = '#71717a';
+            ctx.font = '16px Inter';
+            ctx.textAlign = 'center';
+            ctx.fillText('No spending data available', ctx.canvas.width / 2, ctx.canvas.height / 2);
+            return;
+        }
+        
+        categoryChart = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: data,
+                    backgroundColor: [
+                        '#8b5cf6',
+                        '#6366f1',
+                        '#06b6d4',
+                        '#10b981',
+                        '#f59e0b',
+                        '#ef4444'
+                    ],
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                aspectRatio: 2,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            color: '#a1a1aa',
+                            font: {
+                                family: 'Inter'
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+    
+    function updateTrendChart() {
+        const ctx = document.getElementById('trendChart').getContext('2d');
+        
+        if (trendChart) {
+            trendChart.destroy();
+        }
+        
+        // Sample trend data (replace with real data)
+        const labels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
+        const incomeData = [45000, 52000, 48000, 61000, 55000, 67000];
+        const expenseData = [32000, 38000, 35000, 42000, 39000, 45000];
+        
+        trendChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Income',
+                    data: incomeData,
+                    borderColor: '#10b981',
+                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                    tension: 0.4
+                }, {
+                    label: 'Expenses',
+                    data: expenseData,
+                    borderColor: '#ef4444',
+                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                aspectRatio: 2,
+                plugins: {
+                    legend: {
+                        labels: {
+                            color: '#a1a1aa',
+                            font: {
+                                family: 'Inter'
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        ticks: {
+                            color: '#71717a'
+                        },
+                        grid: {
+                            color: 'rgba(255, 255, 255, 0.1)'
+                        }
+                    },
+                    y: {
+                        ticks: {
+                            color: '#71717a',
+                            callback: function(value) {
+                                return '₹' + value.toLocaleString();
+                            }
+                        },
+                        grid: {
+                            color: 'rgba(255, 255, 255, 0.1)'
+                        }
+                    }
+                }
+            }
+        });
+    }
+    
+    // Load data when page loads
+    document.addEventListener('DOMContentLoaded', () => {
+        loadDashboardData();
+        updateTrendChart();
+    });
+</script>
+{% endblock %}

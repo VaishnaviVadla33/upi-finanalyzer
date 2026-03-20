@@ -1,0 +1,542 @@
+{% extends "base.html" %}
+
+{% block title %}Settings - FinAnalyzer{% endblock %}
+{% block page_title %}Settings{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1" style="gap: var(--space-8);">
+    <!-- Profile Settings -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Profile Settings</h3>
+            <p class="card-subtitle">Manage your account information</p>
+        </div>
+        
+        <form id="profileForm">
+            <div class="grid grid-cols-2" style="gap: var(--space-6); margin-bottom: var(--space-6);">
+                <div class="form-group">
+                    <label class="form-label" for="fullName">Full Name</label>
+                    <input type="text" id="fullName" class="form-input" placeholder="Enter your full name" required>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label" for="email">Email Address</label>
+                    <input type="email" id="email" class="form-input" placeholder="Enter your email" required>
+                </div>
+            </div>
+            
+            <div class="grid grid-cols-2" style="gap: var(--space-6); margin-bottom: var(--space-6);">
+                <div class="form-group">
+                    <label class="form-label" for="phone">Phone Number</label>
+                    <input type="tel" id="phone" class="form-input" placeholder="Enter your phone number">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label" for="currency">Preferred Currency</label>
+                    <select id="currency" class="form-input">
+                        <option value="INR">Indian Rupee (₹)</option>
+                        <option value="USD">US Dollar ($)</option>
+                        <option value="EUR">Euro (€)</option>
+                        <option value="GBP">British Pound (£)</option>
+                    </select>
+                </div>
+            </div>
+            
+            <button type="submit" class="btn btn-primary">
+                <i class="fas fa-save"></i>
+                Save Profile
+            </button>
+        </form>
+    </div>
+    
+    <!-- Security Settings -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Security Settings</h3>
+            <p class="card-subtitle">Manage your password and security preferences</p>
+        </div>
+        
+        <form id="passwordForm">
+            <div class="form-group">
+                <label class="form-label" for="currentPassword">Current Password</label>
+                <input type="password" id="currentPassword" class="form-input" placeholder="Enter current password" required>
+            </div>
+            
+            <div class="grid grid-cols-2" style="gap: var(--space-6); margin-bottom: var(--space-6);">
+                <div class="form-group">
+                    <label class="form-label" for="newPassword">New Password</label>
+                    <input type="password" id="newPassword" class="form-input" placeholder="Enter new password" required>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label" for="confirmPassword">Confirm New Password</label>
+                    <input type="password" id="confirmPassword" class="form-input" placeholder="Confirm new password" required>
+                </div>
+            </div>
+            
+            <button type="submit" class="btn btn-primary">
+                <i class="fas fa-lock"></i>
+                Update Password
+            </button>
+        </form>
+    </div>
+    
+    <!-- Notification Settings -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Notification Settings</h3>
+            <p class="card-subtitle">Choose what notifications you want to receive</p>
+        </div>
+        
+        <div class="settings-group">
+            <div class="setting-item">
+                <div class="setting-info">
+                    <h4 class="setting-title">Email Notifications</h4>
+                    <p class="setting-description">Receive email updates about your transactions and insights</p>
+                </div>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="emailNotifications" checked>
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+            
+            <div class="setting-item">
+                <div class="setting-info">
+                    <h4 class="setting-title">Spending Alerts</h4>
+                    <p class="setting-description">Get notified when you exceed your spending limits</p>
+                </div>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="spendingAlerts" checked>
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+            
+            <div class="setting-item">
+                <div class="setting-info">
+                    <h4 class="setting-title">Weekly Reports</h4>
+                    <p class="setting-description">Receive weekly spending summaries and insights</p>
+                </div>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="weeklyReports" checked>
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+            
+            <div class="setting-item">
+                <div class="setting-info">
+                    <h4 class="setting-title">Group Notifications</h4>
+                    <p class="setting-description">Get notified about group activities and invitations</p>
+                </div>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="groupNotifications" checked>
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+        </div>
+        
+        <button class="btn btn-primary" onclick="saveNotificationSettings()">
+            <i class="fas fa-bell"></i>
+            Save Notification Settings
+        </button>
+    </div>
+    
+    <!-- Privacy Settings -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Privacy Settings</h3>
+            <p class="card-subtitle">Control your data and privacy preferences</p>
+        </div>
+        
+        <div class="settings-group">
+            <div class="setting-item">
+                <div class="setting-info">
+                    <h4 class="setting-title">Data Analytics</h4>
+                    <p class="setting-description">Allow us to analyze your data to provide better insights</p>
+                </div>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="dataAnalytics" checked>
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+            
+            <div class="setting-item">
+                <div class="setting-info">
+                    <h4 class="setting-title">Profile Visibility</h4>
+                    <p class="setting-description">Make your profile visible to other group members</p>
+                </div>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="profileVisibility" checked>
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+        </div>
+        
+        <button class="btn btn-primary" onclick="savePrivacySettings()">
+            <i class="fas fa-shield-alt"></i>
+            Save Privacy Settings
+        </button>
+    </div>
+    
+    <!-- Data Management -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Data Management</h3>
+            <p class="card-subtitle">Export or delete your data</p>
+        </div>
+        
+        <div class="grid grid-cols-2" style="gap: var(--space-4);">
+            <button class="btn btn-outline" onclick="exportAllData()">
+                <i class="fas fa-download"></i>
+                Export All Data
+            </button>
+            
+            <button class="btn btn-outline" style="color: #ef4444; border-color: #ef4444;" onclick="deleteAllData()">
+                <i class="fas fa-trash"></i>
+                Delete All Data
+            </button>
+        </div>
+        
+        <div style="margin-top: var(--space-6); padding: var(--space-4); background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: var(--radius-lg);">
+            <h4 style="color: #ef4444; margin-bottom: var(--space-2);">⚠️ Danger Zone</h4>
+            <p style="color: #ef4444; font-size: var(--font-size-sm);">
+                Deleting your data is permanent and cannot be undone. Please export your data first if you want to keep a backup.
+            </p>
+        </div>
+    </div>
+</div>
+
+<style>
+    .form-group {
+        margin-bottom: 0;
+    }
+    
+    .form-label {
+        display: block;
+        font-weight: 500;
+        margin-bottom: var(--space-2);
+        color: var(--text-primary);
+    }
+    
+    .form-input {
+        width: 100%;
+        padding: var(--space-3) var(--space-4);
+        background: var(--background);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        color: var(--text-primary);
+        font-size: var(--font-size-base);
+        transition: var(--transition);
+    }
+    
+    .form-input:focus {
+        outline: none;
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
+    }
+    
+    .settings-group {
+        margin-bottom: var(--space-6);
+    }
+    
+    .setting-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: var(--space-4) 0;
+        border-bottom: 1px solid var(--border);
+    }
+    
+    .setting-item:last-child {
+        border-bottom: none;
+    }
+    
+    .setting-info {
+        flex: 1;
+    }
+    
+    .setting-title {
+        color: var(--text-primary);
+        font-weight: 500;
+        margin-bottom: var(--space-1);
+    }
+    
+    .setting-description {
+        color: var(--text-secondary);
+        font-size: var(--font-size-sm);
+        line-height: 1.4;
+    }
+    
+    .toggle-switch {
+        position: relative;
+        display: inline-block;
+        width: 50px;
+        height: 24px;
+    }
+    
+    .toggle-switch input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+    }
+    
+    .toggle-slider {
+        position: absolute;
+        cursor: pointer;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: var(--border);
+        transition: var(--transition);
+        border-radius: 24px;
+    }
+    
+    .toggle-slider:before {
+        position: absolute;
+        content: "";
+        height: 18px;
+        width: 18px;
+        left: 3px;
+        bottom: 3px;
+        background-color: white;
+        transition: var(--transition);
+        border-radius: 50%;
+    }
+    
+    input:checked + .toggle-slider {
+        background-color: var(--primary);
+    }
+    
+    input:checked + .toggle-slider:before {
+        transform: translateX(26px);
+    }
+    
+    .success-message {
+        background: rgba(16, 185, 129, 0.1);
+        border: 1px solid rgba(16, 185, 129, 0.3);
+        color: #10b981;
+        padding: var(--space-4);
+        border-radius: var(--radius-lg);
+        margin-bottom: var(--space-4);
+        display: flex;
+        align-items: center;
+        gap: var(--space-3);
+    }
+    
+    .error-message {
+        background: rgba(239, 68, 68, 0.1);
+        border: 1px solid rgba(239, 68, 68, 0.3);
+        color: #ef4444;
+        padding: var(--space-4);
+        border-radius: var(--radius-lg);
+        margin-bottom: var(--space-4);
+        display: flex;
+        align-items: center;
+        gap: var(--space-3);
+    }
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Load user settings
+    async function loadUserSettings() {
+        try {
+            // Load current user data (implement API call)
+            // For now, use session data
+            const userEmail = '{{ session.get("user_email", "") }}';
+            const userName = '{{ session.get("user_name", "") }}';
+            
+            if (userEmail) {
+                document.getElementById('email').value = userEmail;
+            }
+            if (userName) {
+                document.getElementById('fullName').value = userName;
+            }
+            
+        } catch (error) {
+            console.error('Error loading user settings:', error);
+        }
+    }
+    
+    // Profile form handler
+    document.getElementById('profileForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const formData = {
+            fullName: document.getElementById('fullName').value,
+            email: document.getElementById('email').value,
+            phone: document.getElementById('phone').value,
+            currency: document.getElementById('currency').value
+        };
+        
+        try {
+            // Simulate API call
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            showMessage('Profile updated successfully!', 'success');
+            
+        } catch (error) {
+            showMessage('Error updating profile: ' + error.message, 'error');
+        }
+    });
+    
+    // Password form handler
+    document.getElementById('passwordForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const currentPassword = document.getElementById('currentPassword').value;
+        const newPassword = document.getElementById('newPassword').value;
+        const confirmPassword = document.getElementById('confirmPassword').value;
+        
+        if (newPassword !== confirmPassword) {
+            showMessage('New passwords do not match', 'error');
+            return;
+        }
+        
+        if (newPassword.length < 6) {
+            showMessage('Password must be at least 6 characters long', 'error');
+            return;
+        }
+        
+        try {
+            // Simulate API call
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            showMessage('Password updated successfully!', 'success');
+            
+            // Clear form
+            document.getElementById('passwordForm').reset();
+            
+        } catch (error) {
+            showMessage('Error updating password: ' + error.message, 'error');
+        }
+    });
+    
+    function saveNotificationSettings() {
+        const settings = {
+            emailNotifications: document.getElementById('emailNotifications').checked,
+            spendingAlerts: document.getElementById('spendingAlerts').checked,
+            weeklyReports: document.getElementById('weeklyReports').checked,
+            groupNotifications: document.getElementById('groupNotifications').checked
+        };
+        
+        // Save to localStorage for now
+        localStorage.setItem('notificationSettings', JSON.stringify(settings));
+        showMessage('Notification settings saved!', 'success');
+    }
+    
+    function savePrivacySettings() {
+        const settings = {
+            dataAnalytics: document.getElementById('dataAnalytics').checked,
+            profileVisibility: document.getElementById('profileVisibility').checked
+        };
+        
+        // Save to localStorage for now
+        localStorage.setItem('privacySettings', JSON.stringify(settings));
+        showMessage('Privacy settings saved!', 'success');
+    }
+    
+    function exportAllData() {
+        if (!confirm('This will download all your transaction data as a CSV file. Continue?')) {
+            return;
+        }
+        
+        // Simulate data export
+        const csvContent = `Date,Name,Amount,Type,Category
+2024-03-15,Coffee Shop,250,debit,Food
+2024-03-14,Salary,50000,credit,Income
+2024-03-13,Uber,180,debit,Transport`;
+        
+        const blob = new Blob([csvContent], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `finanalyzer_data_${new Date().toISOString().split('T')[0]}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+        
+        showMessage('Data exported successfully!', 'success');
+    }
+    
+    function deleteAllData() {
+        const confirmation = prompt('This will permanently delete ALL your data. Type "DELETE" to confirm:');
+        
+        if (confirmation !== 'DELETE') {
+            showMessage('Data deletion cancelled', 'info');
+            return;
+        }
+        
+        if (!confirm('Are you absolutely sure? This action cannot be undone!')) {
+            return;
+        }
+        
+        // Simulate data deletion
+        setTimeout(() => {
+            showMessage('All data has been deleted. You will be redirected to the home page.', 'success');
+            setTimeout(() => {
+                window.location.href = '/logout';
+            }, 2000);
+        }, 1000);
+    }
+    
+    function showMessage(message, type = 'info') {
+        // Create message element
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `${type}-message`;
+        messageDiv.innerHTML = `
+            <i class="fas fa-${getMessageIcon(type)}"></i>
+            ${message}
+        `;
+        
+        // Insert at top of content
+        const contentArea = document.querySelector('.content-area');
+        contentArea.insertBefore(messageDiv, contentArea.firstChild);
+        
+        // Remove after 5 seconds
+        setTimeout(() => {
+            if (messageDiv.parentElement) {
+                messageDiv.remove();
+            }
+        }, 5000);
+    }
+    
+    function getMessageIcon(type) {
+        switch (type) {
+            case 'success': return 'check-circle';
+            case 'error': return 'exclamation-circle';
+            case 'info': return 'info-circle';
+            default: return 'info-circle';
+        }
+    }
+    
+    // Load settings from localStorage
+    function loadStoredSettings() {
+        // Load notification settings
+        const notificationSettings = localStorage.getItem('notificationSettings');
+        if (notificationSettings) {
+            const settings = JSON.parse(notificationSettings);
+            document.getElementById('emailNotifications').checked = settings.emailNotifications;
+            document.getElementById('spendingAlerts').checked = settings.spendingAlerts;
+            document.getElementById('weeklyReports').checked = settings.weeklyReports;
+            document.getElementById('groupNotifications').checked = settings.groupNotifications;
+        }
+        
+        // Load privacy settings
+        const privacySettings = localStorage.getItem('privacySettings');
+        if (privacySettings) {
+            const settings = JSON.parse(privacySettings);
+            document.getElementById('dataAnalytics').checked = settings.dataAnalytics;
+            document.getElementById('profileVisibility').checked = settings.profileVisibility;
+        }
+    }
+    
+    // Load data when page loads
+    document.addEventListener('DOMContentLoaded', () => {
+        loadUserSettings();
+        loadStoredSettings();
+    });
+</script>
+{% endblock %}

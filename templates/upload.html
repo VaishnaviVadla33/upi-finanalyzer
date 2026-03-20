@@ -1,0 +1,353 @@
+{% extends "base.html" %}
+
+{% block title %}Upload - FinAnalyzer{% endblock %}
+{% block page_title %}Upload Transaction{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-2" style="gap: var(--space-8);">
+    <!-- Upload Section -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Upload UPI Screenshot</h3>
+            <p class="card-subtitle">Upload a screenshot of your UPI transaction for automatic data extraction</p>
+        </div>
+        
+        <div class="upload-area" id="uploadArea">
+            <div class="upload-content">
+                <i class="fas fa-cloud-upload-alt" style="font-size: 3rem; color: var(--primary); margin-bottom: var(--space-4);"></i>
+                <h4 style="margin-bottom: var(--space-2); color: var(--text-primary);">Drop your screenshot here</h4>
+                <p style="color: var(--text-secondary); margin-bottom: var(--space-4);">or click to browse files</p>
+                <input type="file" id="fileInput" accept="image/*" style="display: none;">
+                <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()">
+                    <i class="fas fa-folder-open"></i>
+                    Choose File
+                </button>
+            </div>
+        </div>
+        
+        <div id="uploadProgress" style="display: none; margin-top: var(--space-4);">
+            <div style="display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-2);">
+                <i class="fas fa-spinner fa-spin" style="color: var(--primary);"></i>
+                <span style="color: var(--text-primary);">Processing image...</span>
+            </div>
+            <div style="background: var(--background); border-radius: var(--radius-lg); height: 8px; overflow: hidden;">
+                <div id="progressBar" style="background: var(--gradient); height: 100%; width: 0%; transition: width 0.3s ease;"></div>
+            </div>
+        </div>
+        
+        <div id="uploadResult" style="display: none; margin-top: var(--space-4);"></div>
+    </div>
+    
+    <!-- Form Section -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Transaction Details</h3>
+            <p class="card-subtitle">Review and edit the extracted information</p>
+        </div>
+        
+        <form id="transactionForm">
+            <div class="form-group">
+                <label class="form-label" for="name">Payee/Sender Name</label>
+                <input type="text" id="name" class="form-input" placeholder="Enter name" required>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label" for="amount">Amount (₹)</label>
+                <input type="number" id="amount" class="form-input" placeholder="0.00" step="0.01" required>
+            </div>
+            
+            <div class="grid grid-cols-2" style="gap: var(--space-4); margin-bottom: var(--space-6);">
+                <div class="form-group">
+                    <label class="form-label" for="payment_type">Transaction Type</label>
+                    <select id="payment_type" class="form-input" required>
+                        <option value="debit">Debit (Sent)</option>
+                        <option value="credit">Credit (Received)</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label" for="payee_type">Category</label>
+                    <select id="payee_type" class="form-input" required>
+                        <option value="Food">Food & Dining</option>
+                        <option value="Transport">Transport</option>
+                        <option value="Entertainment">Entertainment</option>
+                        <option value="Utilities">Utilities</option>
+                        <option value="Shopping">Shopping</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="grid grid-cols-2" style="gap: var(--space-4); margin-bottom: var(--space-6);">
+                <div class="form-group">
+                    <label class="form-label" for="date">Date</label>
+                    <input type="date" id="date" class="form-input" required>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label" for="time">Time</label>
+                    <input type="time" id="time" class="form-input" required>
+                </div>
+            </div>
+            
+            <div class="grid grid-cols-2" style="gap: var(--space-4);">
+                <button type="button" class="btn btn-outline" onclick="resetForm()">
+                    <i class="fas fa-undo"></i>
+                    Reset
+                </button>
+                <button type="submit" class="btn btn-primary" id="saveBtn">
+                    <i class="fas fa-save"></i>
+                    Save Transaction
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+    .upload-area {
+        border: 2px dashed var(--border);
+        border-radius: var(--radius-xl);
+        padding: var(--space-12);
+        text-align: center;
+        transition: var(--transition);
+        cursor: pointer;
+    }
+    
+    .upload-area:hover {
+        border-color: var(--primary);
+        background: rgba(139, 92, 246, 0.05);
+    }
+    
+    .upload-area.dragover {
+        border-color: var(--primary);
+        background: rgba(139, 92, 246, 0.1);
+    }
+    
+    .form-group {
+        margin-bottom: var(--space-6);
+    }
+    
+    .form-label {
+        display: block;
+        font-weight: 500;
+        margin-bottom: var(--space-2);
+        color: var(--text-primary);
+    }
+    
+    .form-input {
+        width: 100%;
+        padding: var(--space-3) var(--space-4);
+        background: var(--background);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        color: var(--text-primary);
+        font-size: var(--font-size-base);
+        transition: var(--transition);
+    }
+    
+    .form-input:focus {
+        outline: none;
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
+    }
+    
+    .success-message {
+        background: rgba(16, 185, 129, 0.1);
+        border: 1px solid rgba(16, 185, 129, 0.3);
+        color: #10b981;
+        padding: var(--space-4);
+        border-radius: var(--radius-lg);
+        display: flex;
+        align-items: center;
+        gap: var(--space-3);
+    }
+    
+    .error-message {
+        background: rgba(239, 68, 68, 0.1);
+        border: 1px solid rgba(239, 68, 68, 0.3);
+        color: #ef4444;
+        padding: var(--space-4);
+        border-radius: var(--radius-lg);
+        display: flex;
+        align-items: center;
+        gap: var(--space-3);
+    }
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const uploadArea = document.getElementById('uploadArea');
+    const fileInput = document.getElementById('fileInput');
+    const uploadProgress = document.getElementById('uploadProgress');
+    const uploadResult = document.getElementById('uploadResult');
+    const transactionForm = document.getElementById('transactionForm');
+    
+    // Set default date and time
+    document.getElementById('date').value = new Date().toISOString().split('T')[0];
+    document.getElementById('time').value = new Date().toTimeString().slice(0, 5);
+    
+    // Drag and drop functionality
+    uploadArea.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        uploadArea.classList.add('dragover');
+    });
+    
+    uploadArea.addEventListener('dragleave', () => {
+        uploadArea.classList.remove('dragover');
+    });
+    
+    uploadArea.addEventListener('drop', (e) => {
+        e.preventDefault();
+        uploadArea.classList.remove('dragover');
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            handleFileUpload(files[0]);
+        }
+    });
+    
+    uploadArea.addEventListener('click', () => {
+        fileInput.click();
+    });
+    
+    fileInput.addEventListener('change', (e) => {
+        if (e.target.files.length > 0) {
+            handleFileUpload(e.target.files[0]);
+        }
+    });
+    
+    let isUploading = false; // Prevent double uploads
+    
+    async function handleFileUpload(file) {
+        if (isUploading) {
+            console.log('Upload already in progress');
+            return;
+        }
+        
+        if (!file.type.startsWith('image/')) {
+            showResult('Please select an image file', 'error');
+            return;
+        }
+        
+        isUploading = true;
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        // Show progress
+        uploadProgress.style.display = 'block';
+        uploadResult.style.display = 'none';
+        
+        // Animate progress bar
+        let progress = 0;
+        const progressInterval = setInterval(() => {
+            progress += Math.random() * 20;
+            if (progress > 90) progress = 90;
+            document.getElementById('progressBar').style.width = progress + '%';
+        }, 300);
+        
+        try {
+            const response = await fetch('/api/upload', {
+                method: 'POST',
+                body: formData
+            });
+            
+            const result = await response.json();
+            
+            clearInterval(progressInterval);
+            document.getElementById('progressBar').style.width = '100%';
+            
+            setTimeout(() => {
+                uploadProgress.style.display = 'none';
+                
+                if (result.success) {
+                    showResult('Image processed successfully! Data extracted and filled in the form.', 'success');
+                    fillForm(result.data);
+                } else {
+                    showResult(result.message || 'Failed to process image', 'error');
+                }
+                isUploading = false; // Reset upload flag
+            }, 500);
+            
+        } catch (error) {
+            clearInterval(progressInterval);
+            uploadProgress.style.display = 'none';
+            showResult('Error uploading file: ' + error.message, 'error');
+            isUploading = false; // Reset upload flag
+        }
+    }
+    
+    function fillForm(data) {
+        if (data.name) document.getElementById('name').value = data.name;
+        if (data.amount) document.getElementById('amount').value = data.amount;
+        if (data.payment_type) document.getElementById('payment_type').value = data.payment_type;
+        if (data.payee_type) document.getElementById('payee_type').value = data.payee_type;
+        if (data.date) document.getElementById('date').value = data.date;
+        if (data.time) document.getElementById('time').value = data.time;
+    }
+    
+    function showResult(message, type) {
+        uploadResult.innerHTML = `
+            <div class="${type}-message">
+                <i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'}"></i>
+                ${message}
+            </div>
+        `;
+        uploadResult.style.display = 'block';
+    }
+    
+    function resetForm() {
+        transactionForm.reset();
+        document.getElementById('date').value = new Date().toISOString().split('T')[0];
+        document.getElementById('time').value = new Date().toTimeString().slice(0, 5);
+        uploadResult.style.display = 'none';
+    }
+    
+    // Form submission
+    transactionForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const saveBtn = document.getElementById('saveBtn');
+        const originalText = saveBtn.innerHTML;
+        
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+        
+        try {
+            const formData = {
+                name: document.getElementById('name').value,
+                amount: document.getElementById('amount').value,
+                payment_type: document.getElementById('payment_type').value,
+                payee_type: document.getElementById('payee_type').value,
+                date: document.getElementById('date').value,
+                time: document.getElementById('time').value
+            };
+            
+            const response = await fetch('/api/save-transaction', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(formData)
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                showResult('Transaction saved successfully!', 'success');
+                setTimeout(() => {
+                    window.location.href = '/dashboard';
+                }, 1500);
+            } else {
+                showResult(result.message || 'Failed to save transaction', 'error');
+            }
+            
+        } catch (error) {
+            showResult('Error saving transaction: ' + error.message, 'error');
+        } finally {
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = originalText;
+        }
+    });
+</script>
+{% endblock %}

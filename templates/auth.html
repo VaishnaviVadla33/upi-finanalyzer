@@ -1,0 +1,644 @@
+{% extends "simple_base.html" %}
+
+{% block title %}Sign In - FinAnalyzer{% endblock %}
+
+{% block content %}
+
+<!-- Firebase Client SDK — MUST be loaded for password reset emails to work -->
+<script type="module">
+  import { initializeApp }           from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import { getAuth, sendPasswordResetEmail }
+                                     from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+  // ── Paste your Firebase project config here ────────────────────────────────
+  // Firebase Console → Project Settings → Your apps → SDK setup → Config
+  // Firebase client configuration loaded from firebase_config.json
+  const firebaseConfig = {{ firebase_config | tojson }};
+
+  const firebaseApp  = initializeApp(firebaseConfig);
+  const firebaseAuth = getAuth(firebaseApp);
+
+  // Expose to global scope so the inline JS below can call it
+  window._firebaseSendReset = async (email) => {
+    await sendPasswordResetEmail(firebaseAuth, email);
+  };
+</script>
+
+<style>
+    .auth-container {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        background: var(--background);
+    }
+
+    .auth-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        padding: 40px 36px;
+        width: 100%;
+        max-width: 420px;
+        box-shadow: 0 8px 40px rgba(0,0,0,0.3);
+        animation: fadeUp 0.4s ease;
+    }
+
+    @keyframes fadeUp {
+        from { opacity: 0; transform: translateY(16px); }
+        to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .auth-logo {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        font-size: 18px;
+        font-weight: 700;
+        color: var(--primary-light);
+        margin-bottom: 28px;
+    }
+
+    .auth-tabs {
+        display: flex;
+        background: var(--background);
+        border-radius: 12px;
+        padding: 4px;
+        margin-bottom: 24px;
+        gap: 4px;
+    }
+
+    .tab-btn {
+        flex: 1;
+        padding: 9px;
+        border: none;
+        border-radius: 9px;
+        background: transparent;
+        color: var(--text-secondary);
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+
+    .tab-btn.active {
+        background: var(--surface);
+        color: var(--text-primary);
+        box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+    }
+
+    .toast {
+        display: none;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 14px;
+        border-radius: 10px;
+        font-size: 13px;
+        font-weight: 500;
+        margin-bottom: 18px;
+        line-height: 1.4;
+        animation: toastIn 0.2s ease;
+    }
+
+    .toast.show { display: flex; }
+
+    @keyframes toastIn {
+        from { opacity: 0; transform: translateY(-4px); }
+        to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .toast.error   { background: rgba(239,68,68,0.1);  border: 1px solid rgba(239,68,68,0.25);  color: #f87171; }
+    .toast.success { background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.25); color: #34d399; }
+    .toast.info    { background: rgba(99,102,241,0.1); border: 1px solid rgba(99,102,241,0.25); color: #818cf8; }
+
+    .form-group { margin-bottom: 16px; }
+
+    .form-label {
+        display: block;
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--text-primary);
+        margin-bottom: 7px;
+    }
+
+    .input-wrap { position: relative; }
+
+    .form-input {
+        width: 100%;
+        padding: 11px 40px 11px 14px;
+        background: var(--background);
+        border: 1.5px solid var(--border);
+        border-radius: 10px;
+        color: var(--text-primary);
+        font-size: 14px;
+        transition: border-color 0.2s, box-shadow 0.2s;
+        box-sizing: border-box;
+    }
+
+    .form-input:focus {
+        outline: none;
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(139,92,246,0.12);
+    }
+
+    .form-input.err {
+        border-color: #ef4444;
+        box-shadow: 0 0 0 3px rgba(239,68,68,0.08);
+    }
+
+    .input-ico {
+        position: absolute;
+        right: 13px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--text-secondary);
+        font-size: 13px;
+        cursor: pointer;
+        transition: color 0.2s;
+        user-select: none;
+    }
+
+    .input-ico:hover { color: var(--primary-light); }
+
+    .forgot-link {
+        display: inline-block;
+        text-align: right;
+        width: 100%;
+        font-size: 12px;
+        color: var(--primary-light);
+        margin-top: 6px;
+        cursor: pointer;
+    }
+
+    .forgot-link:hover { text-decoration: underline; }
+
+    .strength-bar {
+        height: 3px;
+        background: var(--border);
+        border-radius: 2px;
+        margin-top: 7px;
+        overflow: hidden;
+    }
+
+    .strength-fill {
+        height: 100%;
+        width: 0;
+        border-radius: 2px;
+        transition: width 0.3s, background 0.3s;
+    }
+
+    .strength-label {
+        font-size: 11px;
+        color: var(--text-secondary);
+        margin-top: 4px;
+    }
+
+    .btn-submit {
+        width: 100%;
+        padding: 12px;
+        background: var(--gradient, linear-gradient(135deg,#7c3aed,#a855f7));
+        color: #fff;
+        border: none;
+        border-radius: 10px;
+        font-size: 15px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: opacity 0.2s, transform 0.15s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        margin-top: 4px;
+    }
+
+    .btn-submit:hover:not(:disabled) { opacity: 0.9; transform: translateY(-1px); }
+    .btn-submit:disabled             { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+    .btn-back {
+        background: none;
+        border: none;
+        color: var(--text-secondary);
+        cursor: pointer;
+        font-size: 13px;
+        padding: 0;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-bottom: 20px;
+    }
+
+    .btn-back:hover { color: var(--text-primary); }
+
+    .view         { display: none; }
+    .view.active  { display: block; }
+
+    .spin {
+        display: inline-block;
+        width: 15px; height: 15px;
+        border: 2px solid rgba(255,255,255,0.3);
+        border-top-color: #fff;
+        border-radius: 50%;
+        animation: spin 0.7s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    @keyframes shake {
+        0%,100% { transform: translateX(0); }
+        20%      { transform: translateX(-6px); }
+        40%      { transform: translateX(6px); }
+        60%      { transform: translateX(-4px); }
+        80%      { transform: translateX(4px); }
+    }
+
+    .shake { animation: shake 0.35s ease; }
+</style>
+
+<div class="auth-container">
+    <div class="auth-card" id="authCard">
+
+        <div class="auth-logo">
+            <i class="fas fa-chart-line"></i>
+            <span>FinAnalyzer</span>
+        </div>
+
+        <!-- ── VIEW: Login / Sign Up ──────────────────────────────────── -->
+        <div class="view active" id="mainView">
+
+            <div class="auth-tabs">
+                <button class="tab-btn active" id="tabLogin"  onclick="switchTab('login')">Sign In</button>
+                <button class="tab-btn"        id="tabSignup" onclick="switchTab('signup')">Create Account</button>
+            </div>
+
+            <div class="toast" id="mainToast">
+                <i class="fas" id="mainToastIcon"></i>
+                <span id="mainToastMsg"></span>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label" for="email">Email address</label>
+                <div class="input-wrap">
+                    <input type="email" id="email" class="form-input"
+                           placeholder="you@example.com" autocomplete="email" autofocus>
+                    <span class="input-ico"><i class="fas fa-envelope"></i></span>
+                </div>
+            </div>
+
+            <div class="form-group" id="nameField" style="display:none;">
+                <label class="form-label" for="name">Full name</label>
+                <div class="input-wrap">
+                    <input type="text" id="name" class="form-input"
+                           placeholder="Your full name" autocomplete="name">
+                    <span class="input-ico"><i class="fas fa-user"></i></span>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label" for="password">Password</label>
+                <div class="input-wrap">
+                    <input type="password" id="password" class="form-input"
+                           placeholder="Minimum 8 characters" autocomplete="current-password">
+                    <span class="input-ico" onclick="togglePwd('password','eyeA')">
+                        <i class="fas fa-eye" id="eyeA"></i>
+                    </span>
+                </div>
+                <div id="strengthWrap" style="display:none;">
+                    <div class="strength-bar"><div class="strength-fill" id="sBar"></div></div>
+                    <div class="strength-label" id="sLabel"></div>
+                </div>
+                <span class="forgot-link" id="forgotLink" onclick="showView('forgot')">Forgot password?</span>
+            </div>
+
+            <div class="form-group" id="confirmField" style="display:none;">
+                <label class="form-label" for="confirm">Confirm password</label>
+                <div class="input-wrap">
+                    <input type="password" id="confirm" class="form-input"
+                           placeholder="Repeat password" autocomplete="new-password">
+                    <span class="input-ico" onclick="togglePwd('confirm','eyeB')">
+                        <i class="fas fa-eye" id="eyeB"></i>
+                    </span>
+                </div>
+            </div>
+
+            <button class="btn-submit" id="submitBtn" onclick="handleSubmit()">
+                <i class="fas fa-sign-in-alt"></i> Sign In
+            </button>
+
+        </div>
+
+        <!-- ── VIEW: Forgot password ──────────────────────────────────── -->
+        <div class="view" id="forgotView">
+
+            <button class="btn-back" onclick="showView('main')">
+                <i class="fas fa-arrow-left"></i> Back to sign in
+            </button>
+
+            <h2 style="font-size:20px;font-weight:700;color:var(--text-primary);margin:0 0 6px;">Reset password</h2>
+            <p style="font-size:13px;color:var(--text-secondary);margin:0 0 22px;line-height:1.5;">
+                Enter your registered email — we'll send a reset link from Firebase.
+            </p>
+
+            <div class="toast" id="forgotToast">
+                <i class="fas" id="forgotToastIcon"></i>
+                <span id="forgotToastMsg"></span>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label" for="resetEmail">Email address</label>
+                <div class="input-wrap">
+                    <input type="email" id="resetEmail" class="form-input" placeholder="you@example.com">
+                    <span class="input-ico"><i class="fas fa-envelope"></i></span>
+                </div>
+            </div>
+
+            <button class="btn-submit" id="resetBtn" onclick="handleReset()">
+                <i class="fas fa-paper-plane"></i> Send reset link
+            </button>
+
+        </div>
+
+    </div>
+</div>
+
+<script>
+let mode = 'login';
+let busy = false;
+
+// ── View switching ────────────────────────────────────────────────────────────
+function showView(v) {
+    document.getElementById('mainView').classList.toggle('active',   v === 'main');
+    document.getElementById('forgotView').classList.toggle('active', v === 'forgot');
+    if (v === 'forgot') {
+        clearToast('forgot');
+        const e = document.getElementById('email').value.trim();
+        if (e) document.getElementById('resetEmail').value = e;
+        setTimeout(() => document.getElementById('resetEmail').focus(), 50);
+    }
+}
+
+// ── Tab switch ────────────────────────────────────────────────────────────────
+function switchTab(m) {
+    mode = m;
+    clearToast('main');
+    ['email','name','password','confirm'].forEach(id => {
+        clearErr(id);
+        if (id !== 'email') document.getElementById(id).value = '';
+    });
+
+    document.getElementById('tabLogin').classList.toggle('active',  m === 'login');
+    document.getElementById('tabSignup').classList.toggle('active', m === 'signup');
+
+    const isS = m === 'signup';
+    show('nameField',    isS);
+    show('confirmField', isS);
+    show('strengthWrap', isS);
+    document.getElementById('forgotLink').style.display = isS ? 'none' : 'inline-block';
+
+    document.getElementById('submitBtn').innerHTML = isS
+        ? '<i class="fas fa-user-plus"></i> Create Account'
+        : '<i class="fas fa-sign-in-alt"></i> Sign In';
+
+    document.getElementById('password').setAttribute('autocomplete',
+        isS ? 'new-password' : 'current-password');
+}
+
+function show(id, visible) {
+    document.getElementById(id).style.display = visible ? 'block' : 'none';
+}
+
+// ── Toast ─────────────────────────────────────────────────────────────────────
+const ICONS = {
+    error  : 'fa-circle-exclamation',
+    success: 'fa-circle-check',
+    info   : 'fa-circle-info'
+};
+
+function showToast(ns, msg, type) {
+    const t  = document.getElementById(ns + 'Toast');
+    const ic = document.getElementById(ns + 'ToastIcon');
+    const ms = document.getElementById(ns + 'ToastMsg');
+    ic.className   = 'fas ' + (ICONS[type] || ICONS.error);
+    ms.textContent = msg;
+    t.className    = `toast show ${type}`;
+}
+
+function clearToast(ns) {
+    const t = document.getElementById(ns + 'Toast');
+    if (t) t.className = 'toast';
+}
+
+function setErr(id)   { const el = document.getElementById(id); if (el) el.classList.add('err'); }
+function clearErr(id) { const el = document.getElementById(id); if (el) el.classList.remove('err'); }
+
+function togglePwd(inputId, iconId) {
+    const inp  = document.getElementById(inputId);
+    const ico  = document.getElementById(iconId);
+    const show = inp.type === 'password';
+    inp.type      = show ? 'text' : 'password';
+    ico.className = show ? 'fas fa-eye-slash' : 'fas fa-eye';
+}
+
+document.getElementById('password').addEventListener('input', function() {
+    if (mode !== 'signup') return;
+    const v = this.value;
+    let s = 0;
+    if (v.length >= 8)          s += 30;
+    if (/[A-Z]/.test(v))        s += 20;
+    if (/[0-9]/.test(v))        s += 25;
+    if (/[^A-Za-z0-9]/.test(v)) s += 25;
+    s = Math.min(s, 100);
+    const fill  = document.getElementById('sBar');
+    const label = document.getElementById('sLabel');
+    fill.style.width = s + '%';
+    if      (s < 30) { fill.style.background = '#ef4444'; label.textContent = 'Weak'; }
+    else if (s < 60) { fill.style.background = '#f59e0b'; label.textContent = 'Fair'; }
+    else if (s < 85) { fill.style.background = '#06b6d4'; label.textContent = 'Good'; }
+    else             { fill.style.background = '#10b981'; label.textContent = 'Strong'; }
+});
+
+function shake() {
+    const c = document.getElementById('authCard');
+    c.classList.remove('shake');
+    void c.offsetWidth;
+    c.classList.add('shake');
+    setTimeout(() => c.classList.remove('shake'), 400);
+}
+
+function validEmail(e) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e); }
+
+function setLoading(btnId, on, idleHTML) {
+    busy = on;
+    const btn     = document.getElementById(btnId);
+    btn.disabled  = on;
+    btn.innerHTML = on ? '<span class="spin"></span>' : idleHTML;
+}
+
+// ── SUBMIT (login / signup) ───────────────────────────────────────────────────
+async function handleSubmit() {
+    if (busy) return;
+    clearToast('main');
+    ['email','name','password','confirm'].forEach(clearErr);
+
+    const email    = document.getElementById('email').value.trim().toLowerCase();
+    const password = document.getElementById('password').value;
+    const name     = document.getElementById('name').value.trim();
+    const confirm  = document.getElementById('confirm').value;
+
+    if (!email || !validEmail(email)) {
+        setErr('email');
+        showToast('main', !email ? 'Please enter your email address.' : 'Invalid email address.', 'error');
+        shake(); return;
+    }
+    if (mode === 'signup' && name.length < 2) {
+        setErr('name');
+        showToast('main', 'Please enter your full name.', 'error');
+        shake(); return;
+    }
+    if (!password) {
+        setErr('password');
+        showToast('main', 'Please enter your password.', 'error');
+        shake(); return;
+    }
+    if (password.length < 8) {
+        setErr('password');
+        showToast('main', 'Password must be at least 8 characters.', 'error');
+        shake(); return;
+    }
+    if (mode === 'signup' && password !== confirm) {
+        setErr('confirm');
+        showToast('main', 'Passwords do not match.', 'error');
+        shake(); return;
+    }
+
+    const idleHTML = mode === 'login'
+        ? '<i class="fas fa-sign-in-alt"></i> Sign In'
+        : '<i class="fas fa-user-plus"></i> Create Account';
+
+    setLoading('submitBtn', true, idleHTML);
+
+    try {
+        const res  = await fetch(mode === 'login' ? '/login' : '/register', {
+            method : 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body   : JSON.stringify(
+                mode === 'login' ? { email, password } : { email, password, name }
+            )
+        });
+
+        if (!res.ok) throw new Error('Server ' + res.status);
+        const data = await res.json();
+
+        if (data.success) {
+            showToast('main', data.message || 'Success!', 'success');
+            setTimeout(() => { window.location.href = '/dashboard'; }, 900);
+        } else {
+            showToast('main', data.message, 'error');
+            if (data.field) setErr(data.field);
+            shake();
+            setLoading('submitBtn', false, idleHTML);
+        }
+    } catch (err) {
+        console.error(err);
+        showToast('main', 'Network error — please check your connection.', 'error');
+        shake();
+        setLoading('submitBtn', false, idleHTML);
+    }
+}
+
+// ── RESET PASSWORD — uses Firebase Client SDK ─────────────────────────────────
+//
+//  Flow:
+//  1. User types email → clicks "Send reset link"
+//  2. We call our backend /api/forgot-password to:
+//     a. Check the email exists in our DB
+//     b. Ensure the user exists in Firebase Auth (creates if needed)
+//  3. If backend says ok → call window._firebaseSendReset(email)
+//     This calls Firebase's sendPasswordResetEmail() which actually
+//     sends the email from Firebase's own mail servers.
+//  4. User gets email → clicks link → Firebase handles verification
+//
+async function handleReset() {
+    if (busy) return;
+    clearToast('forgot');
+    clearErr('resetEmail');
+
+    const email = document.getElementById('resetEmail').value.trim().toLowerCase();
+
+    if (!email || !validEmail(email)) {
+        setErr('resetEmail');
+        showToast('forgot', 'Please enter a valid email address.', 'error');
+        return;
+    }
+
+    const idleHTML = '<i class="fas fa-paper-plane"></i> Send reset link';
+    setLoading('resetBtn', true, idleHTML);
+
+    try {
+        // Step 1: Tell backend to verify email + ensure Firebase Auth user exists
+        const res  = await fetch('/api/forgot-password', {
+            method : 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body   : JSON.stringify({ email })
+        });
+
+        if (!res.ok) throw new Error('Server ' + res.status);
+        const data = await res.json();
+
+        if (!data.success) {
+            showToast('forgot', data.message, 'error');
+            setLoading('resetBtn', false, idleHTML);
+            return;
+        }
+
+        // Step 2: Firebase Client SDK sends the actual email
+        if (typeof window._firebaseSendReset === 'function') {
+            await window._firebaseSendReset(email);
+            showToast('forgot',
+                'Reset link sent! Check your inbox and spam folder.',
+                'success');
+        } else {
+            // Firebase SDK not loaded (config missing) — tell user
+            showToast('forgot',
+                'Firebase not configured. Add your Firebase config to auth.html.',
+                'error');
+        }
+
+    } catch (err) {
+        console.error('Reset error:', err);
+
+        // Firebase-specific error codes
+        const code = err?.code || '';
+        if (code === 'auth/user-not-found') {
+            showToast('forgot', 'No account found with this email.', 'error');
+        } else if (code === 'auth/invalid-email') {
+            showToast('forgot', 'Invalid email address.', 'error');
+        } else if (code === 'auth/too-many-requests') {
+            showToast('forgot', 'Too many requests. Please wait a few minutes and try again.', 'error');
+        } else if (err.message && err.message.startsWith('Server')) {
+            showToast('forgot', 'Network error — please try again.', 'error');
+        } else {
+            showToast('forgot', 'Could not send reset email. Please try again.', 'error');
+        }
+    } finally {
+        setLoading('resetBtn', false, idleHTML);
+    }
+}
+
+// ── Enter key + auto-clear errors ─────────────────────────────────────────────
+['email','name','password','confirm'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('keydown', e => { if (e.key === 'Enter') handleSubmit(); });
+    el.addEventListener('input',   () => { clearErr(id); clearToast('main'); });
+});
+
+document.getElementById('resetEmail').addEventListener('keydown', e => {
+    if (e.key === 'Enter') handleReset();
+});
+document.getElementById('resetEmail').addEventListener('input', () => {
+    clearErr('resetEmail'); clearToast('forgot');
+});
+</script>
+{% endblock %}
