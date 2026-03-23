@@ -39,6 +39,193 @@ from dashboard_helpers import (
     get_top_time_intervals,
 )
 
+# ── Rupee normalization ────────────────────────────────────────────────────────
+# OCR misreads ₹ as: 2, 3, 7, 1, Z, %, $, @, ¥, 8, S, £, R, 5, and sometimes
+# leaves no symbol at all but puts a space before the digits.
+# Strategy: after basic cleanup, replace any of these characters that are
+# immediately followed by digits (with optional space) → ₹
+_RUPEE_NOISE = re.compile(r'(?<!\w)'           # not preceded by a word char (avoid mid-word hits)
+                         r'[₹Rs23781Z%$@¥£SR5]'  # expanded misread set + real symbol
+                         r'\.?'               # optional dot (Rs. style)
+                         r'\s?'               # optional space
+                         r'(?=\d)'            # must be followed by a digit
+                         )
+
+def normalize_rupee(text: str) -> str:
+    """Replace all OCR-garbled rupee symbols with ₹."""
+    # First pass: handle the common misreads
+    normalized = _RUPEE_NOISE.sub('₹', text)
+    
+    # Second pass: handle cases where there's no symbol but amount pattern suggests rupee
+    # Look for standalone numbers that might be amounts (3-6 digits) and add ₹ if missing
+    lines = normalized.splitlines()
+    for i, line in enumerate(lines):
+        # If line contains payment keywords and has a number but no ₹, add it
+        if re.search(r'(paid|received|amount|debited|credited)', line, re.I):
+            # Look for standalone numbers that could be amounts
+            amount_pattern = r'\b(\d{2,6}(?:\.\d{2})?)\b'
+            if re.search(amount_pattern, line) and '₹' not in line:
+                # Add ₹ before the number if it looks like an amount
+                line = re.sub(amount_pattern, r'₹\1', line, count=1)
+                lines[i] = line
+    
+    return '\n'.join(lines)
+
+# ── Amount extraction ─────────────────────────────────────────────────────────
+# After normalizing, all real amounts start with ₹.
+# UPI receipts always show the amount right after "Paid to <Name>" or
+# "Received from <Name>" on the SAME line or the next.
+# The "Debited from XXXXXXX4090  ₹200" line is a confirmation duplicate —
+# we want the FIRST occurrence, not the bank-account-debit line.
+_AMOUNT_RE = re.compile(r'₹\s*(\d{1,3}(?:,\d{3})*(?:\.\d{1,2})?)')
+
+def extract_amount(text: str) -> str:
+    """Find the primary transaction amount.
+    Priority:
+    1. Amount on the same line as the payee name anchor
+    2. Amount on the line immediately after the anchor
+    3. First ₹ amount in the whole text (above any 'Debited from' line)
+    4. Largest ₹ amount as last resort
+    """
+    lines = text.splitlines()
+    
+    # Find anchor line indices
+    anchor_patterns = [r'paid\s+to', r'received\s+from', r'from\b', r'to\b',
+                      r'debited\s+to', r'credited\s+by',]
+    anchor_re = re.compile('|'.join(anchor_patterns), re.I)
+    
+    # Also find the "Debited from XXXX" line to EXCLUDE its amount
+    debit_from_re = re.compile(r'debited\s+from', re.I)
+    debit_from_line = -1
+    for i, line in enumerate(lines):
+        if debit_from_re.search(line):
+            debit_from_line = i
+            break
+    
+    # Try anchor-relative search first
+    for i, line in enumerate(lines):
+        if anchor_re.search(line):
+            # Check same line
+            m = _AMOUNT_RE.search(line)
+            if m:
+                amount = float(m.group(1).replace(',', ''))
+                if 1 <= amount <= 10_000_000:
+                    return str(amount)
+            
+            # Check next 1-2 lines
+            for j in range(i+1, min(i+3, len(lines))):
+                if j == debit_from_line:
+                    continue
+                m = _AMOUNT_RE.search(lines[j])
+                if m:
+                    amount = float(m.group(1).replace(',', ''))
+                    if 1 <= amount <= 10_000_000:
+                        return str(amount)
+    
+    # Fallback: collect all ₹ amounts, skip the "Debited from" line
+    all_amounts = []
+    for i, line in enumerate(lines):
+        if i == debit_from_line:
+            continue
+        for m in _AMOUNT_RE.finditer(line):
+            try:
+                v = float(m.group(1).replace(',', ''))
+                if 1 <= v <= 10_000_000:
+                    all_amounts.append(v)
+            except ValueError:
+                pass
+    
+    if all_amounts:
+        # Return the first one (receipt order = most prominent)
+        return str(all_amounts[0])
+    
+    return '0'
+
+# ── Name extraction ────────────────────────────────────────────────────────────
+# UPI receipts structure:
+#   "Paid to"          → next non-empty line or rest of same line is the name
+#   "Received from"    → same
+#   "From"             → same
+# After grabbing the candidate, strip:
+#   - phone numbers (10+ digits)
+#   - amounts (₹ or comma-number patterns)
+#   - common OCR artifacts (leading rh/th/lh, trailing sa/ot etc.)
+#   - anything that's mostly digits
+_NAME_ANCHORS = [
+    (re.compile(r'paid\s+to[:\s]*(.*)$',         re.I), 1),
+    (re.compile(r'received\s+from[:\s]*(.*)$',    re.I), 1),
+    (re.compile(r'from[:\s]+(.+)$',               re.I), 1),
+    (re.compile(r'to[:\s]+([A-Z].+)$',            re.I), 1),
+    (re.compile(r'pay\s+to[:\s]*(.*)$',           re.I), 1),
+]
+
+_PHONE_RE    = re.compile(r'\+?\d[\d\s\-]{8,}')
+_DIGIT_HEAVY = re.compile(r'^\s*[\d\W]+\s*$')          # line is mostly digits/symbols
+_OCR_LEAD    = re.compile(r'^(rh|th|lh|ih|1h|Il)\s*', re.I)
+_OCR_TRAIL   = re.compile(r'\s+(sa|ot|at|et|it|ut|Sa)$', re.I)
+_NOISE_CHARS = re.compile(r'[^A-Za-z\s&.\'-]')         # keep only name chars
+_EMOJI_RE    = re.compile(r'[\U0001F600-\U0001F64F\U0001F300-\U0001F5FF\U0001F680-\U0001F6FF\U0001F1E0-\U0001F1FF\U00002600-\U000027BF\U0001F900-\U0001F9FF\U0001F018-\U0001F270]')  # emoji patterns
+
+def _clean_name_candidate(raw: str) -> str:
+    """Strip noise from a name candidate string."""
+    raw = _AMOUNT_RE.sub('', raw)           # remove ₹ amounts
+    raw = _PHONE_RE.sub('', raw)            # remove phone numbers
+    raw = _EMOJI_RE.sub('', raw)            # remove emojis
+    raw = _OCR_LEAD.sub('', raw)            # leading OCR artifacts
+    raw = _OCR_TRAIL.sub('', raw)           # trailing OCR artifacts
+    raw = _NOISE_CHARS.sub(' ', raw)        # keep only name-legal chars
+    raw = re.sub(r'\s{2,}', ' ', raw)      # collapse whitespace
+    return raw.strip()
+
+def extract_name(text: str, payment_type: str) -> str:
+    """Extract payee/payer name using anchor-relative line scanning."""
+    lines = [l.strip() for l in text.splitlines()]
+    
+    for i, line in enumerate(lines):
+        for anchor_re, _ in _NAME_ANCHORS:
+            m = anchor_re.search(line)
+            if not m:
+                continue
+            
+            # Candidate is text after the anchor on the same line
+            candidate = m.group(1).strip()
+            
+            # If the same line had nothing useful, try the next lines
+            if not candidate or _DIGIT_HEAVY.match(candidate):
+                for j in range(i+1, min(i+4, len(lines))):
+                    next_line = lines[j]
+                    # Skip lines that are clearly not names
+                    if not next_line:
+                        continue
+                    if _DIGIT_HEAVY.match(next_line):
+                        continue
+                    if re.search(r'(transaction|UTR|UPI|ref|bank|HDFC|SBI|ICICI|axis|amount|debited|credited|transfer)', next_line, re.I):
+                        continue
+                    candidate = next_line
+                    break
+            
+            if not candidate:
+                continue
+            
+            # Take only the first line of multi-line candidate
+            candidate = candidate.split('\n')[0]
+            
+            # Additional cleaning before the main clean function
+            # Remove common OCR artifacts that appear before names
+            candidate = re.sub(r'^[^\w\s]*', '', candidate)  # remove leading non-word chars
+            candidate = re.sub(r'[^\w\s]*$', '', candidate)  # remove trailing non-word chars
+            
+            cleaned = _clean_name_candidate(candidate)
+            
+            # Must be at least 2 chars, not all digits, and contain at least one letter
+            if len(cleaned) >= 2 and not cleaned.isdigit() and re.search(r'[A-Za-z]', cleaned):
+                # Final validation: name shouldn't be mostly numbers or symbols
+                letter_count = len(re.findall(r'[A-Za-z]', cleaned))
+                if letter_count >= len(cleaned) * 0.5:  # at least 50% letters
+                    return cleaned
+    
+    return ''
+
 app = Flask(__name__, template_folder='templates', static_folder='static')
 
 # Use environment variable for secret key in production
@@ -1119,291 +1306,92 @@ def analytics_data():
 # ═════════════════════════════ OCR HELPERS ════════════════════════════════════
 
 def extract_transaction_details(file):
-    """Extract transaction details from uploaded image using OCR with improved preprocessing."""
+    """Extract transaction details from uploaded image using OCR."""
     try:
         print("🔍 Starting OCR extraction...")
-        
-        # Preprocess image for better OCR
         image = Image.open(file.stream)
-        print(f"📷 Image loaded: {image.size} pixels, mode: {image.mode}")
+        print(f"📷 Image: {image.size}, mode: {image.mode}")
         
-        image = image.convert('L')  # Convert to grayscale
-        image = image.point(lambda x: 0 if x < 150 else 255)  # Increase contrast
-        print("🎨 Image preprocessed (grayscale + contrast)")
+        # Grayscale + light contrast boost (don't over-threshold — it destroys ₹)
+        image = image.convert('L')
+        # Use a softer threshold (128 instead of 150) — high threshold destroys
+        # complex glyphs like ₹ which have thin strokes
+        image = image.point(lambda x: 0 if x < 128 else 255)
         
-        # Extract text with custom config
+        # PSM 6 = assume uniform block of text (good for receipts)
         custom_config = r'--oem 3 --psm 6'
-        print(f"🔧 Using Tesseract config: {custom_config}")
-        
         text = pytesseract.image_to_string(image, config=custom_config)
-        print(f"📝 Raw OCR text length: {len(text)} characters")
-        print(f"📝 Raw OCR text preview: {repr(text[:200])}")
+        print(f"📝 OCR text ({len(text)} chars): {repr(text[:300])}")
         
         if not text or len(text.strip()) < 5:
-            print("❌ OCR returned empty or very short text")
+            print("❌ OCR returned empty text")
             return _empty_tx()
         
-        # Clean text - be more aggressive with rupee symbol variations
-        # OCR often misreads ₹ as 7, 3, 1, or other characters
-        corrected_text = text
-        
-        # Replace common OCR misreads of rupee symbol when followed by comma-separated numbers
-        corrected_text = re.sub(r'[73]\s*1,', '₹1,', corrected_text)  # 71,500 -> ₹1,500
-        corrected_text = re.sub(r'[73]\s*(\d{1,2}),', r'₹\1,', corrected_text)  # 72,000 -> ₹2,000
-        corrected_text = re.sub(r'[31]\s*(\d),', r'₹\1,', corrected_text)  # 31,500 -> ₹1,500
-        
-        # Keep necessary characters including newlines for name extraction
-        corrected_text = re.sub(r'[^\w\s₹.,:am|pm\n+@-]', '', corrected_text)
-        print(f"🧹 Cleaned text preview: {repr(corrected_text[:200])}")
-        
-        result = parse_transaction_text(corrected_text)
-        print(f"✅ Parsed result: {result}")
-        
-        return result
+        return parse_transaction_text(text)
     except Exception as e:
-        print(f"❌ OCR extraction failed: {str(e)}")
+        print(f"❌ OCR extraction failed: {e}")
         import traceback
         traceback.print_exc()
         return _empty_tx()
 
 
-def parse_transaction_text(text):
-    """Parse extracted text to identify transaction details."""
-    print(f"🔍 Parsing text: {repr(text[:100])}...")
+def parse_transaction_text(text: str) -> dict:
+    """Parse OCR text from a UPI/bank receipt.
+    Returns a dict with: name, amount, payment_type, payee_type, date, time
+    """
+    print(f"🔍 Parsing text: {repr(text[:120])}...")
     
     details = _empty_tx()
     tl = text.lower()
 
-    # Determine transaction status (credit or debit)
-    if "credited" in tl or "received" in tl or "received from" in tl:
+    # ── 1. Payment type ───────────────────────────────────────────────────────
+    if re.search(r'\b(credited|received\s+from|money\s+received)\b', tl):
         details['payment_type'] = 'credit'
-        print("💰 Detected: CREDIT transaction")
-    elif "debited" in tl or "paid" in tl or "paid to" in tl:
+        print("💰 Detected: CREDIT")
+    elif re.search(r'\b(debited|paid\s+to|payment\s+to|sent\s+to)\b', tl):
         details['payment_type'] = 'debit'
-        print("💸 Detected: DEBIT transaction")
-    else:
-        print("❓ Transaction type not detected, defaulting to debit")
+        print("💸 Detected: DEBIT")
 
-    # Extract date and time
-    date_time = re.search(r'(\d{1,2}:\d{2}\s*[APap][Mm])\s*on\s*(\d{1,2}\s\w+\s\d{4})', text)
+    # ── 2. Normalize rupee symbol BEFORE any amount extraction ───────────────
+    normalized = normalize_rupee(text)
+    print(f"🔧 Normalized: {repr(normalized[:120])}")
+
+    # ── 3. Date & time (unchanged — your existing logic works well) ──────────
+    date_time = re.search(r'(\d{1,2}:\d{2}\s*[APap][Mm])\s*on\s*(\d{1,2}\s+\w+\s+\d{4})', text)
     if date_time:
-        time_str = date_time.group(1).strip()
-        date_str = date_time.group(2).strip()
-        print(f"📅 Found date/time: {date_str} {time_str}")
         try:
-            datetime_str = f"{date_str} {time_str}"
-            datetime_obj = datetime.strptime(datetime_str, '%d %b %Y %I:%M %p')
-            details['date'] = datetime_obj.strftime('%Y-%m-%d')
-            details['time'] = datetime_obj.strftime('%H:%M')
-            print(f"✅ Parsed date: {details['date']} {details['time']}")
+            dt_str = f"{date_time.group(2).strip()} {date_time.group(1).strip()}"
+            dt_obj = datetime.strptime(dt_str, '%d %b %Y %I:%M %p')
+            details['date'] = dt_obj.strftime('%Y-%m-%d')
+            details['time'] = dt_obj.strftime('%H:%M')
+            print(f"📅 Date: {details['date']} {details['time']}")
         except ValueError as e:
-            print(f"❌ Date parsing failed: {e}")
-    else:
-        print("❓ No date/time pattern found")
+            print(f"❌ Date parse error: {e}")
 
-    # Extract amount - INTELLIGENT pattern matching with context analysis
-    print("🔍 Starting intelligent amount extraction...")
-    
-    # First, find all potential amounts in the text with their context
-    potential_amounts = []
-    
-    # Pattern 1: Look for amounts with proper rupee symbols
-    rupee_patterns = [
-        r'₹\s*(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)',  # ₹1,500 or ₹1,500.00
-        r'Rs\.?\s*(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)',  # Rs.1,500
-        r'INR\s*(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)',  # INR 1,500
-    ]
-    
-    for pattern in rupee_patterns:
-        for match in re.finditer(pattern, text, re.I):
-            try:
-                amount_str = match.group(1).replace(',', '')
-                amount = float(amount_str)
-                if 1 <= amount <= 10_000_000:
-                    context = text[max(0, match.start()-20):match.end()+20]
-                    potential_amounts.append({
-                        'amount': amount,
-                        'confidence': 0.9,
-                        'source': 'proper_symbol',
-                        'context': context.strip(),
-                        'position': match.start()
-                    })
-                    print(f"💰 Found proper rupee amount: ₹{amount} (context: {context.strip()[:30]}...)")
-            except ValueError:
-                continue
-    
-    # Pattern 2: Look for comma-separated numbers that could be amounts
-    comma_pattern = r'(\d{1,3}(?:,\d{3})+(?:\.\d{2})?)'
-    for match in re.finditer(comma_pattern, text):
-        try:
-            amount_str = match.group(1).replace(',', '')
-            amount = float(amount_str)
-            if 100 <= amount <= 10_000_000:  # Reasonable range for comma-separated amounts
-                context = text[max(0, match.start()-30):match.end()+30]
-                
-                # Analyze context to determine confidence
-                confidence = 0.5  # Base confidence for comma-separated numbers
-                
-                # Increase confidence if context suggests it's an amount
-                context_lower = context.lower()
-                if any(word in context_lower for word in ['paid', 'received', 'amount', 'total', 'debited', 'credited']):
-                    confidence += 0.2
-                
-                # Check if there's a potential rupee symbol nearby (within 5 characters before)
-                before_text = text[max(0, match.start()-5):match.start()]
-                if re.search(r'[₹Rs\.\d\W]$', before_text):
-                    confidence += 0.3
-                    print(f"💡 Potential rupee symbol detected before amount: '{before_text[-5:]}'")
-                
-                potential_amounts.append({
-                    'amount': amount,
-                    'confidence': confidence,
-                    'source': 'comma_separated',
-                    'context': context.strip(),
-                    'position': match.start()
-                })
-                print(f"💵 Found comma amount: ₹{amount} (confidence: {confidence:.1f}, context: {context.strip()[:30]}...)")
-        except ValueError:
-            continue
-    
-    # Pattern 3: Look for standalone numbers that might be amounts (with context analysis)
-    number_pattern = r'\b(\d{2,6}(?:\.\d{2})?)\b'
-    for match in re.finditer(number_pattern, text):
-        try:
-            amount = float(match.group(1))
-            if 50 <= amount <= 100_000:  # Reasonable range for standalone amounts
-                context = text[max(0, match.start()-30):match.end()+30]
-                context_lower = context.lower()
-                
-                # Start with low confidence
-                confidence = 0.2
-                
-                # Increase confidence based on context clues
-                if any(word in context_lower for word in ['paid', 'received', 'amount', 'total', 'debited', 'credited']):
-                    confidence += 0.4
-                
-                # Check for nearby rupee indicators
-                before_text = text[max(0, match.start()-10):match.start()]
-                after_text = text[match.end():match.end()+10]
-                
-                if re.search(r'[₹Rs\.\W\d]\s*$', before_text, re.I):
-                    confidence += 0.3
-                    print(f"💡 Potential rupee indicator before: '{before_text[-10:]}'")
-                
-                # Reduce confidence if it looks like ID, phone number, or date
-                if len(match.group(1)) >= 6 or re.search(r'(id|phone|mobile|number|utr|ref)', context_lower):
-                    confidence -= 0.3
-                
-                if confidence > 0.3:  # Only consider if confidence is reasonable
-                    potential_amounts.append({
-                        'amount': amount,
-                        'confidence': confidence,
-                        'source': 'standalone_number',
-                        'context': context.strip(),
-                        'position': match.start()
-                    })
-                    print(f"🔢 Found standalone amount: ₹{amount} (confidence: {confidence:.1f}, context: {context.strip()[:30]}...)")
-        except ValueError:
-            continue
-    
-    # Select the best amount based on confidence and context
-    if potential_amounts:
-        # Sort by confidence (highest first), then by amount (higher amounts often more reliable for transactions)
-        potential_amounts.sort(key=lambda x: (x['confidence'], x['amount']), reverse=True)
-        
-        best_amount = potential_amounts[0]
-        details['amount'] = str(best_amount['amount'])
-        print(f"✅ Selected best amount: ₹{best_amount['amount']} (confidence: {best_amount['confidence']:.1f}, source: {best_amount['source']})")
-        print(f"   Context: {best_amount['context'][:50]}...")
-    else:
-        print("❌ No reliable amounts found")
-        details['amount'] = '0'
+    # ── 4. Amount (anchor-relative, skips "Debited from" duplicate) ──────────
+    details['amount'] = extract_amount(normalized)
+    print(f"� Amount: {details['amount']}")
 
-    # Extract sender/receiver name - IMPROVED patterns with better cleaning
-    name_patterns = []
-    
-    if details['payment_type'] == 'credit':
-        name_patterns = [
-            r'Received from[\s\n]+([A-Za-z][A-Za-z\s&\.]+)',  # Received from Name
-            r'From[\s\n]+([A-Za-z][A-Za-z\s&\.]+)',  # From Name
-            r'Credited by[\s\n]+([A-Za-z][A-Za-z\s&\.]+)',  # Credited by Name
-        ]
-    else:  # debit
-        name_patterns = [
-            r'Paid to[\s\n]+([A-Za-z][A-Za-z\s&\.]+)',  # Paid to Name
-            r'To[\s\n]+([A-Za-z][A-Za-z\s&\.]+)',  # To Name
-            r'(?:^|\n)([A-Z][A-Z\s&\.]{3,}(?:LIMITED|LTD|PRIVATE|PVT|COMPANY|CO|CORP|INC)?)',  # Company names
-        ]
-    
-    for pattern in name_patterns:
-        name_match = re.search(pattern, text, re.I | re.MULTILINE)
-        if name_match:
-            extracted_name = name_match.group(1).strip()
-            
-            # Advanced name cleaning
-            # Remove common OCR artifacts at the beginning
-            extracted_name = re.sub(r'^[^A-Za-z]*', '', extracted_name)  # Remove leading non-letters
-            extracted_name = re.sub(r'^(rh|th|lh|ih)\s+', '', extracted_name, flags=re.I)  # Remove OCR artifacts like "rh"
-            
-            # Clean up the name
-            extracted_name = re.sub(r'\s+', ' ', extracted_name)  # Multiple spaces to single
-            extracted_name = extracted_name.split('\n')[0].strip()  # Stop at first newline
-            
-            # Remove trailing OCR artifacts
-            extracted_name = re.sub(r'\s+(Sa|ot|at|et|it|ut)$', '', extracted_name, flags=re.I)  # Remove trailing artifacts
-            
-            # Remove any numbers (amounts, phone numbers, IDs)
-            extracted_name = re.sub(r'\d+[,\d]*', '', extracted_name).strip()
-            
-            # Remove trailing punctuation and artifacts
-            extracted_name = re.sub(r'[\W]+$', '', extracted_name).strip()
-            
-            # Remove leading/trailing spaces and ensure proper case
-            extracted_name = extracted_name.strip()
-            
-            # Additional cleaning for company names
-            if len(extracted_name) > 2:
-                # Fix common OCR issues in company names
-                extracted_name = re.sub(r'\bLIMITED\b', 'LIMITED', extracted_name, flags=re.I)
-                extracted_name = re.sub(r'\bPRIVATE\b', 'PRIVATE', extracted_name, flags=re.I)
-                extracted_name = re.sub(r'\bLTD\b', 'LTD', extracted_name, flags=re.I)
-                
-                # Ensure it's not just artifacts
-                if len(extracted_name) > 2 and not extracted_name.isdigit() and not re.match(r'^[^A-Za-z]+$', extracted_name):
-                    details['name'] = extracted_name
-                    print(f"👤 Found name: {extracted_name}")
-                    break
+    # ── 5. Name (anchor-relative) ─────────────────────────────────────────────
+    details['name'] = extract_name(normalized, details['payment_type'])
+    print(f"👤 Name: {details['name']}")
 
-    if not details['name']:
-        print("❓ No name pattern matched")
-        
-        # Fallback: look for any capitalized words that might be company names
-        company_words = re.findall(r'\b[A-Z][A-Z\s&]{2,}(?:LIMITED|LTD|PRIVATE|PVT|COMPANY|CO)?\b', text)
-        for company in company_words:
-            cleaned = re.sub(r'^(rh|th|lh|ih)\s+', '', company, flags=re.I).strip()
-            cleaned = re.sub(r'\s+(Sa|ot|at|et|it|ut)$', '', cleaned, flags=re.I).strip()
-            if len(cleaned) > 3 and not re.search(r'\d', cleaned):
-                details['name'] = cleaned
-                print(f"👤 Found fallback company name: {cleaned}")
-                break
-
-    # Categorize transaction based on keywords
+    # ── 6. Category (unchanged) ───────────────────────────────────────────────
     categories = {
-        'Food': ['restaurant', 'food', 'zomato', 'swiggy', 'cafe', 'hotel', 'dining', 'eatery'],
-        'Transport': ['uber', 'ola', 'metro', 'bus', 'taxi', 'petrol', 'fuel', 'rapido'],
-        'Entertainment': ['movie', 'cinema', 'netflix', 'spotify', 'game', 'bookmyshow'],
-        'Utilities': ['electricity', 'water', 'gas', 'internet', 'mobile', 'recharge', 'bill'],
-        'Shopping': ['amazon', 'flipkart', 'mall', 'store', 'shop', 'purchase', 'myntra'],
-        'Government': ['passport', 'seva', 'gov', 'government', 'tax', 'license'],
+        'Food':          ['restaurant', 'food', 'zomato', 'swiggy', 'cafe', 'hotel', 'dining'],
+        'Transport':     ['uber', 'ola', 'metro', 'bus', 'taxi', 'petrol', 'fuel', 'rapido'],
+        'Entertainment': ['movie', 'cinema', 'netflix', 'spotify', 'bookmyshow'],
+        'Utilities':     ['electricity', 'water', 'gas', 'internet', 'mobile', 'recharge', 'bill'],
+        'Shopping':      ['amazon', 'flipkart', 'mall', 'store', 'shop', 'myntra'],
+        'Government':    ['passport', 'seva', 'gov', 'government', 'tax', 'license'],
     }
     
     for category, keywords in categories.items():
-        if any(keyword in tl for keyword in keywords):
+        if any(k in tl for k in keywords):
             details['payee_type'] = category
-            print(f"🏷️ Categorized as: {category}")
             break
 
-    print(f"📋 Final parsed details: {details}")
+    print(f"📋 Final: {details}")
     return details
 
 
