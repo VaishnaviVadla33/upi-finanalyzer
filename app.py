@@ -1201,74 +1201,123 @@ def parse_transaction_text(text):
     else:
         print("❓ No date/time pattern found")
 
-    # Extract amount - IMPROVED patterns for better rupee symbol detection
-    amount_patterns = [
-        # High priority: comma-separated amounts with various rupee representations
-        (r'[₹Rs\.]*\s*(\d{1,3}(?:,\d{3})+)', 'high'),  # ₹1,500 or Rs.1,500
-        (r'[2371]\s*(\d{1,3}(?:,\d{3})+)', 'high'),  # 21,500 (₹ misread as 2/3/7/1)
-        
-        # Medium priority: amounts with rupee symbol (2-6 digits)
-        (r'[₹Rs\.]\s*(\d{2,6})', 'medium'),  # ₹500 or Rs.500
-        (r'[2371]\s*(\d{2,6})', 'medium'),  # 2500 (₹ misread as 2/3/7/1)
-        
-        # Low priority: standalone amounts
-        (r'(?:Amount|Total)[:\s]*[₹Rs\.]*\s*(\d{1,3}(?:,\d{3})+)', 'low'),
-        (r'(?:Amount|Total)[:\s]*[₹Rs\.]*\s*(\d{2,6})', 'low'),
+    # Extract amount - INTELLIGENT pattern matching with context analysis
+    print("🔍 Starting intelligent amount extraction...")
+    
+    # First, find all potential amounts in the text with their context
+    potential_amounts = []
+    
+    # Pattern 1: Look for amounts with proper rupee symbols
+    rupee_patterns = [
+        r'₹\s*(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)',  # ₹1,500 or ₹1,500.00
+        r'Rs\.?\s*(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)',  # Rs.1,500
+        r'INR\s*(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)',  # INR 1,500
     ]
     
-    found_amounts = []
-    for pattern, priority in amount_patterns:
+    for pattern in rupee_patterns:
         for match in re.finditer(pattern, text, re.I):
             try:
                 amount_str = match.group(1).replace(',', '')
                 amount = float(amount_str)
-                if 10 <= amount <= 10_000_000:  # Reasonable amount range
-                    found_amounts.append((amount, priority, pattern))
-                    print(f"💵 Found amount: ₹{amount} (priority: {priority}, pattern: {pattern})")
+                if 1 <= amount <= 10_000_000:
+                    context = text[max(0, match.start()-20):match.end()+20]
+                    potential_amounts.append({
+                        'amount': amount,
+                        'confidence': 0.9,
+                        'source': 'proper_symbol',
+                        'context': context.strip(),
+                        'position': match.start()
+                    })
+                    print(f"💰 Found proper rupee amount: ₹{amount} (context: {context.strip()[:30]}...)")
             except ValueError:
                 continue
     
-    # Select the best amount based on priority
-    if found_amounts:
-        # Sort by priority (high > medium > low), then by amount (larger is more likely correct)
-        priority_order = {'high': 0, 'medium': 1, 'low': 2}
-        found_amounts.sort(key=lambda x: (priority_order[x[1]], -x[0]))
-        best_amount = found_amounts[0][0]
-        details['amount'] = str(best_amount)
-        print(f"✅ Selected amount: ₹{best_amount}")
-    else:
-        print("❓ No amount patterns matched")
+    # Pattern 2: Look for comma-separated numbers that could be amounts
+    comma_pattern = r'(\d{1,3}(?:,\d{3})+(?:\.\d{2})?)'
+    for match in re.finditer(comma_pattern, text):
+        try:
+            amount_str = match.group(1).replace(',', '')
+            amount = float(amount_str)
+            if 100 <= amount <= 10_000_000:  # Reasonable range for comma-separated amounts
+                context = text[max(0, match.start()-30):match.end()+30]
+                
+                # Analyze context to determine confidence
+                confidence = 0.5  # Base confidence for comma-separated numbers
+                
+                # Increase confidence if context suggests it's an amount
+                context_lower = context.lower()
+                if any(word in context_lower for word in ['paid', 'received', 'amount', 'total', 'debited', 'credited']):
+                    confidence += 0.2
+                
+                # Check if there's a potential rupee symbol nearby (within 5 characters before)
+                before_text = text[max(0, match.start()-5):match.start()]
+                if re.search(r'[₹Rs\.\d\W]$', before_text):
+                    confidence += 0.3
+                    print(f"💡 Potential rupee symbol detected before amount: '{before_text[-5:]}'")
+                
+                potential_amounts.append({
+                    'amount': amount,
+                    'confidence': confidence,
+                    'source': 'comma_separated',
+                    'context': context.strip(),
+                    'position': match.start()
+                })
+                print(f"💵 Found comma amount: ₹{amount} (confidence: {confidence:.1f}, context: {context.strip()[:30]}...)")
+        except ValueError:
+            continue
     
-    # If still no amount, look for any comma-separated number OR any 2-6 digit number
-    if not details['amount'] or details['amount'] == '0':
-        print("🔍 Searching for fallback amounts...")
+    # Pattern 3: Look for standalone numbers that might be amounts (with context analysis)
+    number_pattern = r'\b(\d{2,6}(?:\.\d{2})?)\b'
+    for match in re.finditer(number_pattern, text):
+        try:
+            amount = float(match.group(1))
+            if 50 <= amount <= 100_000:  # Reasonable range for standalone amounts
+                context = text[max(0, match.start()-30):match.end()+30]
+                context_lower = context.lower()
+                
+                # Start with low confidence
+                confidence = 0.2
+                
+                # Increase confidence based on context clues
+                if any(word in context_lower for word in ['paid', 'received', 'amount', 'total', 'debited', 'credited']):
+                    confidence += 0.4
+                
+                # Check for nearby rupee indicators
+                before_text = text[max(0, match.start()-10):match.start()]
+                after_text = text[match.end():match.end()+10]
+                
+                if re.search(r'[₹Rs\.\W\d]\s*$', before_text, re.I):
+                    confidence += 0.3
+                    print(f"💡 Potential rupee indicator before: '{before_text[-10:]}'")
+                
+                # Reduce confidence if it looks like ID, phone number, or date
+                if len(match.group(1)) >= 6 or re.search(r'(id|phone|mobile|number|utr|ref)', context_lower):
+                    confidence -= 0.3
+                
+                if confidence > 0.3:  # Only consider if confidence is reasonable
+                    potential_amounts.append({
+                        'amount': amount,
+                        'confidence': confidence,
+                        'source': 'standalone_number',
+                        'context': context.strip(),
+                        'position': match.start()
+                    })
+                    print(f"🔢 Found standalone amount: ₹{amount} (confidence: {confidence:.1f}, context: {context.strip()[:30]}...)")
+        except ValueError:
+            continue
+    
+    # Select the best amount based on confidence and context
+    if potential_amounts:
+        # Sort by confidence (highest first), then by amount (higher amounts often more reliable for transactions)
+        potential_amounts.sort(key=lambda x: (x['confidence'], x['amount']), reverse=True)
         
-        # Look for numbers that might have rupee symbol misread as digit
-        fallback_patterns = [
-            r'\b(\d{1,3}(?:,\d{3})+)\b',  # Any comma-separated number
-            r'\b([2371]\d{3,5})\b',  # Numbers starting with 2,3,7,1 (common ₹ misreads)
-            r'\b(\d{2,6})\b'  # Any reasonable number
-        ]
-        
-        for pattern in fallback_patterns:
-            numbers = re.findall(pattern, text)
-            for num_str in numbers:
-                try:
-                    # If it starts with 2,3,7,1 and is 4+ digits, likely has misread ₹
-                    if num_str[0] in '2371' and len(num_str) >= 4:
-                        # Remove the first digit (misread ₹)
-                        amount = float(num_str[1:].replace(',', ''))
-                    else:
-                        amount = float(num_str.replace(',', ''))
-                    
-                    if 10 <= amount <= 10_000_000:
-                        details['amount'] = str(amount)
-                        print(f"✅ Found fallback amount: ₹{amount} (from {num_str})")
-                        break
-                except ValueError:
-                    continue
-            if details['amount'] and details['amount'] != '0':
-                break
+        best_amount = potential_amounts[0]
+        details['amount'] = str(best_amount['amount'])
+        print(f"✅ Selected best amount: ₹{best_amount['amount']} (confidence: {best_amount['confidence']:.1f}, source: {best_amount['source']})")
+        print(f"   Context: {best_amount['context'][:50]}...")
+    else:
+        print("❌ No reliable amounts found")
+        details['amount'] = '0'
 
     # Extract sender/receiver name - IMPROVED patterns with better cleaning
     name_patterns = []
