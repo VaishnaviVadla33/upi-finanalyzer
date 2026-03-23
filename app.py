@@ -53,23 +53,7 @@ _RUPEE_NOISE = re.compile(r'(?<!\w)'           # not preceded by a word char (av
 
 def normalize_rupee(text: str) -> str:
     """Replace all OCR-garbled rupee symbols with ₹."""
-    # First pass: handle the common misreads
-    normalized = _RUPEE_NOISE.sub('₹', text)
-    
-    # Second pass: handle cases where there's no symbol but amount pattern suggests rupee
-    # Look for standalone numbers that might be amounts (3-6 digits) and add ₹ if missing
-    lines = normalized.splitlines()
-    for i, line in enumerate(lines):
-        # If line contains payment keywords and has a number but no ₹, add it
-        if re.search(r'(paid|received|amount|debited|credited)', line, re.I):
-            # Look for standalone numbers that could be amounts
-            amount_pattern = r'\b(\d{2,6}(?:\.\d{2})?)\b'
-            if re.search(amount_pattern, line) and '₹' not in line:
-                # Add ₹ before the number if it looks like an amount
-                line = re.sub(amount_pattern, r'₹\1', line, count=1)
-                lines[i] = line
-    
-    return '\n'.join(lines)
+    return _RUPEE_NOISE.sub('₹', text)
 
 # ── Amount extraction ─────────────────────────────────────────────────────────
 # After normalizing, all real amounts start with ₹.
@@ -80,64 +64,47 @@ def normalize_rupee(text: str) -> str:
 _AMOUNT_RE = re.compile(r'₹\s*(\d{1,3}(?:,\d{3})*(?:\.\d{1,2})?)')
 
 def extract_amount(text: str) -> str:
-    """Find the primary transaction amount.
-    Priority:
-    1. Amount on the same line as the payee name anchor
-    2. Amount on the line immediately after the anchor
-    3. First ₹ amount in the whole text (above any 'Debited from' line)
-    4. Largest ₹ amount as last resort
+    """Extract amount using simple and effective approach.
+    1. Find all ₹ amounts in the text
+    2. Return the first valid amount found
+    3. If amount starts with misread rupee symbol (2/3/7/1/5), try removing first digit
     """
-    lines = text.splitlines()
+    # Find all amounts with ₹ symbol
+    amounts = _AMOUNT_RE.findall(text)
     
-    # Find anchor line indices
-    anchor_patterns = [r'paid\s+to', r'received\s+from', r'from\b', r'to\b',
-                      r'debited\s+to', r'credited\s+by',]
-    anchor_re = re.compile('|'.join(anchor_patterns), re.I)
-    
-    # Also find the "Debited from XXXX" line to EXCLUDE its amount
-    debit_from_re = re.compile(r'debited\s+from', re.I)
-    debit_from_line = -1
-    for i, line in enumerate(lines):
-        if debit_from_re.search(line):
-            debit_from_line = i
-            break
-    
-    # Try anchor-relative search first
-    for i, line in enumerate(lines):
-        if anchor_re.search(line):
-            # Check same line
-            m = _AMOUNT_RE.search(line)
-            if m:
-                amount = float(m.group(1).replace(',', ''))
-                if 1 <= amount <= 10_000_000:
-                    return str(amount)
-            
-            # Check next 1-2 lines
-            for j in range(i+1, min(i+3, len(lines))):
-                if j == debit_from_line:
-                    continue
-                m = _AMOUNT_RE.search(lines[j])
-                if m:
-                    amount = float(m.group(1).replace(',', ''))
-                    if 1 <= amount <= 10_000_000:
-                        return str(amount)
-    
-    # Fallback: collect all ₹ amounts, skip the "Debited from" line
-    all_amounts = []
-    for i, line in enumerate(lines):
-        if i == debit_from_line:
+    for amount_str in amounts:
+        try:
+            amount = float(amount_str.replace(',', ''))
+            if 1 <= amount <= 10_000_000:
+                return str(amount)
+        except ValueError:
             continue
-        for m in _AMOUNT_RE.finditer(line):
-            try:
-                v = float(m.group(1).replace(',', ''))
-                if 1 <= v <= 10_000_000:
-                    all_amounts.append(v)
-            except ValueError:
-                pass
     
-    if all_amounts:
-        # Return the first one (receipt order = most prominent)
-        return str(all_amounts[0])
+    # Fallback: look for amounts that might have misread rupee symbol
+    # Pattern: number starting with 2,3,7,1,5 followed by 3+ digits
+    fallback_pattern = r'\b([2371578])(\d{3,6}(?:\.\d{2})?)\b'
+    fallback_matches = re.findall(fallback_pattern, text)
+    
+    for first_digit, rest_digits in fallback_matches:
+        try:
+            # Try removing the first digit (likely misread rupee symbol)
+            amount = float(rest_digits.replace(',', ''))
+            if 10 <= amount <= 10_000_000:  # reasonable amount range
+                return str(amount)
+        except ValueError:
+            continue
+    
+    # Last resort: find any reasonable number that could be an amount
+    number_pattern = r'\b(\d{2,6}(?:\.\d{2})?)\b'
+    numbers = re.findall(number_pattern, text)
+    
+    for num_str in numbers:
+        try:
+            amount = float(num_str.replace(',', ''))
+            if 10 <= amount <= 100000:  # conservative range for last resort
+                return str(amount)
+        except ValueError:
+            continue
     
     return '0'
 
