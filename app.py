@@ -1087,14 +1087,27 @@ def analytics_data():
 def extract_transaction_details(file):
     """Extract transaction details from uploaded image using OCR with improved preprocessing."""
     try:
+        print("🔍 Starting OCR extraction...")
+        
         # Preprocess image for better OCR
         image = Image.open(file.stream)
+        print(f"📷 Image loaded: {image.size} pixels, mode: {image.mode}")
+        
         image = image.convert('L')  # Convert to grayscale
         image = image.point(lambda x: 0 if x < 150 else 255)  # Increase contrast
+        print("🎨 Image preprocessed (grayscale + contrast)")
         
         # Extract text with custom config
         custom_config = r'--oem 3 --psm 6'
+        print(f"🔧 Using Tesseract config: {custom_config}")
+        
         text = pytesseract.image_to_string(image, config=custom_config)
+        print(f"📝 Raw OCR text length: {len(text)} characters")
+        print(f"📝 Raw OCR text preview: {repr(text[:200])}")
+        
+        if not text or len(text.strip()) < 5:
+            print("❌ OCR returned empty or very short text")
+            return _empty_tx()
         
         # Clean text - be more aggressive with rupee symbol variations
         # OCR often misreads ₹ as 7, 3, 1, or other characters
@@ -1107,35 +1120,52 @@ def extract_transaction_details(file):
         
         # Keep necessary characters including newlines for name extraction
         corrected_text = re.sub(r'[^\w\s₹.,:am|pm\n+@-]', '', corrected_text)
+        print(f"🧹 Cleaned text preview: {repr(corrected_text[:200])}")
         
-        return parse_transaction_text(corrected_text)
+        result = parse_transaction_text(corrected_text)
+        print(f"✅ Parsed result: {result}")
+        
+        return result
     except Exception as e:
+        print(f"❌ OCR extraction failed: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return _empty_tx()
 
 
 def parse_transaction_text(text):
     """Parse extracted text to identify transaction details."""
+    print(f"🔍 Parsing text: {repr(text[:100])}...")
+    
     details = _empty_tx()
     tl = text.lower()
 
     # Determine transaction status (credit or debit)
     if "credited" in tl or "received" in tl or "received from" in tl:
         details['payment_type'] = 'credit'
+        print("💰 Detected: CREDIT transaction")
     elif "debited" in tl or "paid" in tl or "paid to" in tl:
         details['payment_type'] = 'debit'
+        print("💸 Detected: DEBIT transaction")
+    else:
+        print("❓ Transaction type not detected, defaulting to debit")
 
     # Extract date and time
     date_time = re.search(r'(\d{1,2}:\d{2}\s*[APap][Mm])\s*on\s*(\d{1,2}\s\w+\s\d{4})', text)
     if date_time:
         time_str = date_time.group(1).strip()
         date_str = date_time.group(2).strip()
+        print(f"📅 Found date/time: {date_str} {time_str}")
         try:
             datetime_str = f"{date_str} {time_str}"
             datetime_obj = datetime.strptime(datetime_str, '%d %b %Y %I:%M %p')
             details['date'] = datetime_obj.strftime('%Y-%m-%d')
             details['time'] = datetime_obj.strftime('%H:%M')
+            print(f"✅ Parsed date: {details['date']} {details['time']}")
         except ValueError as e:
-            pass
+            print(f"❌ Date parsing failed: {e}")
+    else:
+        print("❓ No date/time pattern found")
 
     # Extract amount - PRIORITIZE comma-separated amounts, then any amount with ₹
     amount_patterns = [
@@ -1160,6 +1190,7 @@ def parse_transaction_text(text):
                 amount = float(amount_str)
                 if 10 <= amount <= 10_000_000:  # Reasonable amount range
                     found_amounts.append((amount, priority, pattern))
+                    print(f"💵 Found amount: ₹{amount} (priority: {priority})")
             except ValueError:
                 continue
     
@@ -1170,15 +1201,20 @@ def parse_transaction_text(text):
         found_amounts.sort(key=lambda x: (priority_order[x[1]], -x[0]))
         best_amount = found_amounts[0][0]
         details['amount'] = str(best_amount)
+        print(f"✅ Selected amount: ₹{best_amount}")
+    else:
+        print("❓ No amount patterns matched")
     
     # If still no amount, look for any comma-separated number OR any 2-6 digit number
     if not details['amount'] or details['amount'] == '0':
+        print("🔍 Searching for fallback amounts...")
         comma_numbers = re.findall(r'\b(\d{1,3}(?:,\d{3})+)\b', text)
         for num_str in comma_numbers:
             try:
                 amount = float(num_str.replace(',', ''))
                 if 10 <= amount <= 10_000_000:
                     details['amount'] = str(amount)
+                    print(f"✅ Found fallback comma amount: ₹{amount}")
                     break
             except ValueError:
                 continue
@@ -1192,6 +1228,7 @@ def parse_transaction_text(text):
                     # Skip transaction IDs and phone numbers (too long)
                     if 10 <= amount <= 100000:
                         details['amount'] = str(amount)
+                        print(f"✅ Found fallback number: ₹{amount}")
                         break
                 except ValueError:
                     continue
@@ -1228,7 +1265,11 @@ def parse_transaction_text(text):
             
             if len(extracted_name) > 1 and not extracted_name.isdigit():
                 details['name'] = extracted_name
+                print(f"👤 Found name: {extracted_name}")
                 break
+
+    if not details['name']:
+        print("❓ No name pattern matched")
 
     # Categorize transaction based on keywords
     categories = {
@@ -1243,8 +1284,10 @@ def parse_transaction_text(text):
     for category, keywords in categories.items():
         if any(keyword in tl for keyword in keywords):
             details['payee_type'] = category
+            print(f"🏷️ Categorized as: {category}")
             break
 
+    print(f"📋 Final parsed details: {details}")
     return details
 
 
