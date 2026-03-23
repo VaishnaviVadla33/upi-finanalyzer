@@ -9,7 +9,16 @@
         <div class="card-header">
             <div>
                 <h3 class="card-title"><i class="fas fa-images" style="color:var(--accent-light);margin-right:8px"></i>Upload Multiple Screenshots</h3>
-                <p class="card-subtitle">Select up to 20 UPI screenshots for batch processing</p>
+                <p class="card-subtitle">Select up to 10 UPI screenshots for batch processing</p>
+            </div>
+        </div>
+        
+        <!-- Disclaimer -->
+        <div style="background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.3);border-radius:var(--radius-lg);padding:12px 16px;margin:0 var(--space-6) var(--space-4) var(--space-6);display:flex;align-items:start;gap:12px">
+            <i class="fas fa-exclamation-triangle" style="color:#f59e0b;margin-top:2px;flex-shrink:0"></i>
+            <div style="font-size:var(--fs-sm);color:var(--text-primary)">
+                <strong style="display:block;margin-bottom:4px">Important:</strong>
+                Do not refresh or go back while processing images. This may cause data loss or incomplete uploads.
             </div>
         </div>
         
@@ -19,7 +28,7 @@
                     <i class="fas fa-cloud-arrow-up" style="font-size:24px;color:var(--accent-light)"></i>
                 </div>
                 <h4 style="font-weight:600;margin-bottom:6px">Drop your screenshots here</h4>
-                <p style="color:var(--text-muted);font-size:var(--fs-sm);margin-bottom:16px">PNG, JPG or WEBP — max 20 files, 10MB each</p>
+                <p style="color:var(--text-muted);font-size:var(--fs-sm);margin-bottom:16px">PNG, JPG or WEBP — max 10 files, 10MB each</p>
                 <input type="file" id="fileInput" accept="image/*" multiple style="display:none">
                 <button class="btn btn-primary" style="font-size:var(--fs-sm)" onclick="document.getElementById('fileInput').click()">
                     <i class="fas fa-folder-open"></i> Choose Files
@@ -128,8 +137,8 @@
             return;
         }
         
-        if (selectedFiles.length + fileArray.length > 20) {
-            if (window.FinAnalyzer) window.FinAnalyzer.showNotification('Maximum 20 photos allowed', 'error');
+        if (selectedFiles.length + fileArray.length > 10) {
+            if (window.FinAnalyzer) window.FinAnalyzer.showNotification('Maximum 10 photos allowed', 'error');
             return;
         }
         

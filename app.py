@@ -64,43 +64,56 @@ def normalize_rupee(text: str) -> str:
 _AMOUNT_RE = re.compile(r'₹\s*(\d{1,3}(?:,\d{3})*(?:\.\d{1,2})?)')
 
 def extract_amount(text: str) -> str:
-    """Extract amount using simple and effective approach.
-    OCR often misreads ₹ as the first digit, so we always try removing first digit.
-    """
-    # First: Look for amounts with ₹ symbol (rare but best case)
-    amounts = _AMOUNT_RE.findall(text)
+    """Extract amount - PRIORITIZE comma-separated amounts, then any amount with ₹"""
+    # High priority: comma-separated amounts
+    amount_patterns = [
+        (r'₹\s*(\d{1,3}(?:,\d{3})+)', 'high'),  # ₹1,500
+        (r'Rs\.?\s*(\d{1,3}(?:,\d{3})+)', 'high'),  # Rs.1,500
+        # Medium priority: amounts with rupee symbol (2-6 digits)
+        (r'₹\s*(\d{2,6})', 'medium'),  # ₹500 or ₹1500
+        (r'Rs\.?\s*(\d{2,6})', 'medium'),  # Rs.500
+        # Low priority: standalone amounts
+        (r'(?:Amount|Total)[:\s]*₹?\s*(\d{1,3}(?:,\d{3})+)', 'low'),
+        (r'(?:Amount|Total)[:\s]*₹?\s*(\d{2,6})', 'low'),
+    ]
     
-    for amount_str in amounts:
+    found_amounts = []
+    for pattern, priority in amount_patterns:
+        for match in re.finditer(pattern, text, re.I):
+            try:
+                amount_str = match.group(1).replace(',', '')
+                amount = float(amount_str)
+                if 10 <= amount <= 10_000_000:  # Reasonable amount range
+                    found_amounts.append((amount, priority, pattern))
+            except ValueError:
+                continue
+    
+    # Select the best amount based on priority
+    if found_amounts:
+        # Sort by priority (high > medium > low), then by amount (larger is more likely correct)
+        priority_order = {'high': 0, 'medium': 1, 'low': 2}
+        found_amounts.sort(key=lambda x: (priority_order[x[1]], -x[0]))
+        best_amount = found_amounts[0][0]
+        return str(best_amount)
+    
+    # If still no amount, look for any comma-separated number OR any 2-6 digit number
+    comma_numbers = re.findall(r'\b(\d{1,3}(?:,\d{3})+)\b', text)
+    for num_str in comma_numbers:
         try:
-            amount = float(amount_str.replace(',', ''))
-            if 1 <= amount <= 10_000_000:
+            amount = float(num_str.replace(',', ''))
+            if 10 <= amount <= 10_000_000:
                 return str(amount)
         except ValueError:
             continue
     
-    # Main approach: Find all numbers and assume first digit is misread rupee symbol
-    # Look for any number with 2+ digits
-    number_pattern = r'\b(\d{2,7}(?:\.\d{2})?)\b'
-    numbers = re.findall(number_pattern, text)
-    
-    for num_str in numbers:
+    # Last resort: find any reasonable number
+    all_numbers = re.findall(r'\b(\d{2,6})\b', text)
+    for num in all_numbers:
         try:
-            original_amount = float(num_str.replace(',', ''))
-            
-            # Try removing first digit (likely misread rupee symbol)
-            if len(num_str.replace('.', '').replace(',', '')) >= 2:
-                # Remove first digit
-                without_first = num_str[1:]
-                if without_first and not without_first.startswith('.'):
-                    amount_without_first = float(without_first.replace(',', ''))
-                    # Check if the amount without first digit is reasonable
-                    if 10 <= amount_without_first <= 1_000_000:
-                        return str(amount_without_first)
-            
-            # If removing first digit doesn't work, try original number
-            if 10 <= original_amount <= 100_000:
-                return str(original_amount)
-                
+            amount = float(num)
+            # Skip transaction IDs and phone numbers (too long)
+            if 10 <= amount <= 100000:
+                return str(amount)
         except ValueError:
             continue
     
