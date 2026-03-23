@@ -1,0 +1,115 @@
+{% extends "simple_base.html" %}
+{% block title %}FinAnalyzer — Smart UPI Expense Tracker{% endblock %}
+
+{% block content %}
+<!-- Navbar -->
+<nav class="navbar">
+    <div class="nav-container">
+        <a href="/" class="logo"><i class="fas fa-chart-line"></i><span>FinAnalyzer</span></a>
+        <div class="nav-menu">
+            <a href="#features" class="nav-link">Features</a>
+            <a href="#how" class="nav-link">How It Works</a>
+        </div>
+        <div class="nav-actions">
+            <a href="/auth" class="btn btn-outline" style="font-size:var(--fs-sm)">Sign In</a>
+            <a href="/auth" class="btn btn-primary" style="font-size:var(--fs-sm)">Get Started</a>
+        </div>
+    </div>
+</nav>
+
+<!-- Hero -->
+<section class="hero">
+    <div class="hero-container">
+        <div class="hero-content">
+            <h1 class="hero-title">Track your<br><span class="gradient-text">UPI spending</span><br>effortlessly</h1>
+            <p class="hero-description">Snap a screenshot of any UPI transaction and let AI extract, categorize, and analyze your finances — instantly.</p>
+            <div class="hero-actions">
+                <a href="/auth" class="btn btn-primary btn-large"><i class="fas fa-rocket"></i> Start Free</a>
+                <a href="#features" class="btn btn-outline btn-large"><i class="fas fa-play"></i> See How</a>
+            </div>
+            <div class="hero-stats">
+                <div class="stat"><div class="stat-number">10K+</div><div class="stat-label">Users</div></div>
+                <div class="stat"><div class="stat-number">₹5Cr+</div><div class="stat-label">Tracked</div></div>
+                <div class="stat"><div class="stat-number">99.2%</div><div class="stat-label">OCR Accuracy</div></div>
+            </div>
+        </div>
+        <div class="hero-visual">
+            <div class="dashboard-preview">
+                <div class="preview-header"><div class="preview-dots"><span></span><span></span><span></span></div><span class="preview-title">FinAnalyzer Dashboard</span></div>
+                <div class="preview-content">
+                    <div class="preview-stats">
+                        <div class="preview-stat"><div class="stat-icon income"><i class="fas fa-arrow-up"></i></div><div><div class="stat-value">₹1.2L</div><div class="stat-name">Income</div></div></div>
+                        <div class="preview-stat"><div class="stat-icon expense"><i class="fas fa-arrow-down"></i></div><div><div class="stat-value">₹87K</div><div class="stat-name">Expenses</div></div></div>
+                    </div>
+                    <div class="preview-chart"><div class="chart-bars"><div class="bar" style="height:60%"></div><div class="bar" style="height:80%"></div><div class="bar" style="height:45%"></div><div class="bar" style="height:90%"></div><div class="bar" style="height:55%"></div><div class="bar" style="height:70%"></div></div></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Features -->
+<section class="features" id="features">
+    <div class="container">
+        <div class="section-header">
+            <h2 class="section-title">Why <span class="gradient-text">FinAnalyzer</span>?</h2>
+            <p class="section-description">Everything you need to master your personal finance in one beautiful platform.</p>
+        </div>
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="feature-icon"><i class="fas fa-camera"></i></div>
+                <h3 class="feature-title">Smart OCR Scanning</h3>
+                <p class="feature-description">Upload any UPI payment screenshot. Our AI instantly extracts amount, payee, date, and categorizes it for you.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon" style="background:linear-gradient(135deg,#10b981,#059669)"><i class="fas fa-chart-pie"></i></div>
+                <h3 class="feature-title">Deep Analytics</h3>
+                <p class="feature-description">Interactive charts, spending trends, and AI-powered savings insights to help you understand where your money goes.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon" style="background:linear-gradient(135deg,#f59e0b,#d97706)"><i class="fas fa-users"></i></div>
+                <h3 class="feature-title">Group Expenses</h3>
+                <p class="feature-description">Create groups, invite friends, and split expenses effortlessly. Perfect for trips, roommates, and shared budgets.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- CTA -->
+<section class="cta" id="how">
+    <div class="container">
+        <div class="cta-content">
+            <h2 class="cta-title">Ready to take control?</h2>
+            <p class="cta-description">Join thousands of users who have transformed how they manage their UPI finances.</p>
+            <a href="/auth" class="btn btn-primary btn-large"><i class="fas fa-arrow-right"></i> Get Started for Free</a>
+        </div>
+    </div>
+</section>
+
+<!-- Footer -->
+<footer class="footer">
+    <div class="container">
+        <div class="footer-content">
+            <div class="footer-brand">
+                <div class="logo"><i class="fas fa-chart-line"></i><span>FinAnalyzer</span></div>
+                <p>Smart UPI financial analytics platform.</p>
+            </div>
+            <div class="footer-links">
+                <div class="footer-column">
+                    <h4>Product</h4>
+                    <a href="#features">Features</a>
+                    <a href="/auth">Dashboard</a>
+                    <a href="/auth">Analytics</a>
+                </div>
+                <div class="footer-column">
+                    <h4>Support</h4>
+                    <a href="#">Help Center</a>
+                    <a href="#">Privacy Policy</a>
+                    <a href="#">Terms of Use</a>
+                </div>
+            </div>
+        </div>
+        <div class="footer-bottom"><p>&copy; 2024 FinAnalyzer. All rights reserved.</p></div>
+    </div>
+</footer>
+{% endblock %}

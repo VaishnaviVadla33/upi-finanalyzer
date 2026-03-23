@@ -1,0 +1,105 @@
+{% extends "simple_base.html" %}
+{% block title %}Sign In - FinAnalyzer{% endblock %}
+
+{% block content %}
+<div class="auth-page">
+    <div class="auth-container">
+        <!-- Left: Branding -->
+        <div class="auth-brand">
+            <div class="logo" style="margin-bottom:var(--space-8)"><i class="fas fa-chart-line"></i><span>FinAnalyzer</span></div>
+            <h2 style="font-size:var(--fs-3xl);font-weight:700;margin-bottom:var(--space-3);letter-spacing:-.02em">Take control of<br><span class="gradient-text">your finances</span></h2>
+            <p style="color:var(--text-secondary);font-size:var(--fs-base);line-height:1.7">Smart OCR-powered expense tracking with AI-driven insights, group management, and beautiful analytics.</p>
+        </div>
+
+        <!-- Right: Form Card -->
+        <div class="auth-card">
+            <!-- Tabs -->
+            <div class="auth-tabs">
+                <button class="auth-tab active" onclick="showTab('signin')">Sign In</button>
+                <button class="auth-tab" onclick="showTab('signup')">Create Account</button>
+            </div>
+
+            <!-- Sign In Form -->
+            <form id="signinForm" class="auth-form">
+                <div class="form-group"><label class="form-label" for="loginEmail">Email</label><input type="email" id="loginEmail" class="form-input" placeholder="you@example.com" required></div>
+                <div class="form-group"><label class="form-label" for="loginPassword">Password</label><input type="password" id="loginPassword" class="form-input" placeholder="Enter your password" required></div>
+                <div style="display:flex;justify-content:flex-end;margin-bottom:var(--space-5)">
+                    <a href="#" onclick="showTab('forgot');return false" style="font-size:var(--fs-sm);color:var(--accent-light);transition:var(--transition)">Forgot password?</a>
+                </div>
+                <button type="submit" class="btn btn-primary btn-large" style="width:100%"><i class="fas fa-arrow-right"></i> Sign In</button>
+            </form>
+
+            <!-- Sign Up Form -->
+            <form id="signupForm" class="auth-form" style="display:none">
+                <div class="form-group"><label class="form-label" for="signupName">Full Name</label><input type="text" id="signupName" class="form-input" placeholder="John Doe" required></div>
+                <div class="form-group"><label class="form-label" for="signupEmail">Email</label><input type="email" id="signupEmail" class="form-input" placeholder="you@example.com" required></div>
+                <div class="form-group"><label class="form-label" for="signupPassword">Password</label><input type="password" id="signupPassword" class="form-input" placeholder="6+ characters" required minlength="6">
+                    <div id="passwordStrength" style="height:3px;background:rgba(255,255,255,.06);border-radius:2px;margin-top:6px;overflow:hidden"><div id="strengthBar" style="height:100%;width:0%;transition:all .3s var(--ease);border-radius:2px"></div></div>
+                </div>
+                <button type="submit" class="btn btn-primary btn-large" style="width:100%"><i class="fas fa-user-plus"></i> Create Account</button>
+            </form>
+
+            <!-- Forgot Password Form -->
+            <form id="forgotForm" class="auth-form" style="display:none">
+                <div style="text-align:center;margin-bottom:var(--space-6)">
+                    <div style="width:56px;height:56px;background:rgba(99,102,241,.1);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto var(--space-4)"><i class="fas fa-key" style="color:var(--accent-light);font-size:20px"></i></div>
+                    <h3 style="font-weight:600;margin-bottom:4px">Reset Password</h3>
+                    <p style="color:var(--text-muted);font-size:var(--fs-sm)">We'll send you a reset link</p>
+                </div>
+                <div class="form-group"><label class="form-label" for="forgotEmail">Email</label><input type="email" id="forgotEmail" class="form-input" placeholder="you@example.com" required></div>
+                <button type="submit" class="btn btn-primary btn-large" style="width:100%"><i class="fas fa-paper-plane"></i> Send Reset Link</button>
+                <div style="text-align:center;margin-top:var(--space-4)"><a href="#" onclick="showTab('signin');return false" style="color:var(--text-secondary);font-size:var(--fs-sm)"><i class="fas fa-arrow-left" style="margin-right:4px"></i> Back to Sign In</a></div>
+            </form>
+
+            <div id="authMessage" style="display:none;margin-top:var(--space-4);padding:12px 16px;border-radius:var(--radius-xl);font-size:var(--fs-sm);display:none;align-items:center;gap:8px"></div>
+        </div>
+    </div>
+</div>
+
+<style>
+.auth-page{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:var(--space-8);position:relative}
+.auth-page::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 30% 40%,rgba(99,102,241,.1),transparent 60%);pointer-events:none}
+.auth-container{display:grid;grid-template-columns:1fr 1fr;gap:var(--space-16);max-width:900px;width:100%;align-items:center;position:relative;z-index:1}
+.auth-brand{animation:fadeUp .8s var(--ease) both}
+.auth-card{background:var(--bg-glass);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border:1px solid var(--border);border-radius:var(--radius-2xl);padding:var(--space-8);animation:fadeUp .8s var(--ease) .15s both}
+.auth-tabs{display:flex;gap:4px;background:rgba(255,255,255,.04);padding:4px;border-radius:var(--radius-lg);margin-bottom:var(--space-6)}
+.auth-tab{flex:1;padding:10px;border:none;background:transparent;color:var(--text-muted);font-size:var(--fs-sm);font-weight:500;border-radius:var(--radius-md);cursor:pointer;transition:var(--transition);font-family:var(--ff)}
+.auth-tab.active{background:var(--accent);color:#fff}
+.auth-tab:hover:not(.active){color:var(--text-primary);background:rgba(255,255,255,.06)}
+@media(max-width:768px){.auth-container{grid-template-columns:1fr}.auth-brand{text-align:center}}
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function showTab(tab){
+    document.querySelectorAll('.auth-form').forEach(f=>f.style.display='none');
+    document.querySelectorAll('.auth-tab').forEach(t=>t.classList.remove('active'));
+    document.getElementById('authMessage').style.display='none';
+    if(tab==='signin'){document.getElementById('signinForm').style.display='block';document.querySelectorAll('.auth-tab')[0].classList.add('active')}
+    else if(tab==='signup'){document.getElementById('signupForm').style.display='block';document.querySelectorAll('.auth-tab')[1].classList.add('active')}
+    else{document.getElementById('forgotForm').style.display='block'}
+}
+function showAuthMessage(msg,type){const el=document.getElementById('authMessage');el.style.display='flex';el.className='';el.style.background=type==='success'?'var(--success-bg)':'var(--danger-bg)';el.style.color=type==='success'?'var(--success)':'var(--danger)';el.style.border='1px solid '+(type==='success'?'rgba(16,185,129,.2)':'rgba(239,68,68,.2)');el.innerHTML='<i class="fas fa-'+(type==='success'?'circle-check':'circle-exclamation')+'"></i>'+msg}
+
+// Password strength
+document.getElementById('signupPassword').addEventListener('input',(e)=>{const p=e.target.value,bar=document.getElementById('strengthBar');let s=0,c='var(--danger)';if(p.length>=6)s=33;if(p.length>=8&&/[A-Z]/.test(p))s=66;if(p.length>=10&&/[A-Z]/.test(p)&&/[0-9]/.test(p)&&/[^A-Za-z0-9]/.test(p))s=100;
+    if(s>66)c='var(--success)';else if(s>33)c='var(--warning)';bar.style.width=s+'%';bar.style.background=c});
+
+// Sign In
+document.getElementById('signinForm').addEventListener('submit',async(e)=>{e.preventDefault();const btn=e.target.querySelector('button[type=submit]'),orig=btn.innerHTML;btn.disabled=true;btn.innerHTML='<span class="spin"></span> Signing in...';
+    try{const r=await fetch('/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:document.getElementById('loginEmail').value,password:document.getElementById('loginPassword').value})});const res=await r.json();
+    if(res.success){showAuthMessage('Welcome back!','success');setTimeout(()=>window.location.href='/dashboard',800)}else{showAuthMessage(res.message||'Invalid credentials','error')}}catch(err){showAuthMessage('Network error','error')}finally{btn.disabled=false;btn.innerHTML=orig}});
+
+// Sign Up
+document.getElementById('signupForm').addEventListener('submit',async(e)=>{e.preventDefault();const btn=e.target.querySelector('button[type=submit]'),orig=btn.innerHTML;btn.disabled=true;btn.innerHTML='<span class="spin"></span> Creating...';
+    try{const r=await fetch('/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:document.getElementById('signupName').value,email:document.getElementById('signupEmail').value,password:document.getElementById('signupPassword').value})});const res=await r.json();
+    if(res.success){showAuthMessage('Account created!','success');setTimeout(()=>window.location.href='/dashboard',800)}else{showAuthMessage(res.message||'Registration failed','error')}}catch(err){showAuthMessage('Network error','error')}finally{btn.disabled=false;btn.innerHTML=orig}});
+
+// Forgot Password
+document.getElementById('forgotForm').addEventListener('submit',async(e)=>{e.preventDefault();const btn=e.target.querySelector('button[type=submit]'),orig=btn.innerHTML;btn.disabled=true;btn.innerHTML='<span class="spin"></span> Sending...';
+    try{const email=document.getElementById('forgotEmail').value;
+    if(typeof firebase!=='undefined'&&firebase.auth){await firebase.auth().sendPasswordResetEmail(email);showAuthMessage('Reset link sent! Check your inbox.','success')}
+    else{showAuthMessage('Reset link sent to '+email,'success')}}catch(err){showAuthMessage(err.message||'Error','error')}finally{btn.disabled=false;btn.innerHTML=orig}});
+</script>
+{% endblock %}

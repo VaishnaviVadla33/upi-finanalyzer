@@ -1,0 +1,319 @@
+{% extends "base.html" %}
+{% block title %}History - FinAnalyzer{% endblock %}
+{% block page_title %}Transaction History{% endblock %}
+
+{% block content %}
+<!-- Filters -->
+<div class="card" style="margin-bottom:var(--space-6);animation:fadeUp .6s var(--ease) both">
+    <div class="card-header"><h3 class="card-title"><i class="fas fa-filter" style="color:var(--accent-light);margin-right:8px"></i>Filters</h3></div>
+    <div class="grid grid-cols-3" style="gap:var(--space-4)">
+        <div><label class="form-label" for="categoryFilter">Category</label><select id="categoryFilter" class="form-input"><option value="all">All Categories</option><option value="Food">Food & Dining</option><option value="Transport">Transport</option><option value="Entertainment">Entertainment</option><option value="Utilities">Utilities</option><option value="Shopping">Shopping</option><option value="Other">Other</option></select></div>
+        <div><label class="form-label" for="dateFrom">From Date</label><input type="date" id="dateFrom" class="form-input"></div>
+        <div><label class="form-label" for="dateTo">To Date</label><input type="date" id="dateTo" class="form-input"></div>
+    </div>
+    <div style="display:flex;gap:var(--space-3);margin-top:var(--space-4)">
+        <button class="btn btn-primary" onclick="applyFilters()" style="font-size:var(--fs-sm)"><i class="fas fa-filter"></i> Apply</button>
+        <button class="btn btn-outline" onclick="clearFilters()" style="font-size:var(--fs-sm)"><i class="fas fa-times"></i> Clear</button>
+        <button class="btn btn-outline" onclick="exportData()" style="font-size:var(--fs-sm)"><i class="fas fa-download"></i> Export CSV</button>
+    </div>
+</div>
+
+<!-- Transactions -->
+<div class="grid grid-cols-2" style="gap:var(--space-6)">
+    <!-- Credit Transactions -->
+    <div class="card" style="animation:fadeUp .6s var(--ease) .1s both">
+        <div class="card-header">
+            <h3 class="card-title" style="color:var(--success)"><i class="fas fa-arrow-down" style="margin-right:8px"></i>Credit (Received)</h3>
+            <span id="creditCount" style="color:var(--text-muted);font-size:var(--fs-sm)">Loading...</span>
+        </div>
+        <div id="creditList"><div style="text-align:center;color:var(--text-muted);padding:var(--space-8)"><div class="skeleton" style="width:100%;height:56px;margin-bottom:8px"></div><div class="skeleton" style="width:100%;height:56px"></div></div></div>
+    </div>
+
+    <!-- Debit Transactions -->
+    <div class="card" style="animation:fadeUp .6s var(--ease) .15s both">
+        <div class="card-header">
+            <h3 class="card-title" style="color:var(--danger)"><i class="fas fa-arrow-up" style="margin-right:8px"></i>Debit (Sent)</h3>
+            <span id="debitCount" style="color:var(--text-muted);font-size:var(--fs-sm)">Loading...</span>
+        </div>
+        <div id="debitList"><div style="text-align:center;color:var(--text-muted);padding:var(--space-8)"><div class="skeleton" style="width:100%;height:56px;margin-bottom:8px"></div><div class="skeleton" style="width:100%;height:56px"></div></div></div>
+    </div>
+</div>
+
+<!-- Edit Modal -->
+<div id="editModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);z-index:1000;align-items:center;justify-content:center">
+    <div class="card" style="max-width:500px;width:90%;margin:20px;animation:fadeUp .3s var(--ease)">
+        <div class="card-header">
+            <h3 class="card-title">Edit Transaction</h3>
+            <button onclick="closeEditModal()" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:20px;padding:0;width:24px;height:24px"><i class="fas fa-times"></i></button>
+        </div>
+        <form id="editForm" onsubmit="saveEdit(event)">
+            <input type="hidden" id="editId">
+            <input type="hidden" id="editType">
+            <div class="form-group"><label class="form-label" for="editName">Name</label><input type="text" id="editName" class="form-input" required></div>
+            <div class="form-group"><label class="form-label" for="editAmount">Amount (₹)</label><input type="number" id="editAmount" class="form-input" step="0.01" required></div>
+            <div class="grid grid-cols-2" style="gap:var(--space-4);margin-bottom:var(--space-5)">
+                <div class="form-group" style="margin-bottom:0"><label class="form-label" for="editPaymentType">Type</label>
+                    <select id="editPaymentType" class="form-input" required><option value="debit">Debit (Sent)</option><option value="credit">Credit (Received)</option></select></div>
+                <div class="form-group" style="margin-bottom:0"><label class="form-label" for="editPayeeType">Category</label>
+                    <select id="editPayeeType" class="form-input" required><option value="Food">Food & Dining</option><option value="Transport">Transport</option><option value="Entertainment">Entertainment</option><option value="Utilities">Utilities</option><option value="Shopping">Shopping</option><option value="Other">Other</option></select></div>
+            </div>
+            <div class="grid grid-cols-2" style="gap:var(--space-4);margin-bottom:var(--space-6)">
+                <div class="form-group" style="margin-bottom:0"><label class="form-label" for="editDate">Date</label><input type="date" id="editDate" class="form-input" required></div>
+                <div class="form-group" style="margin-bottom:0">
+                    <label class="form-label">Time</label>
+                    <div style="display:flex;gap:6px;align-items:center">
+                        <input type="number" id="editTimeHour" class="form-input" placeholder="HH" min="1" max="12" style="width:50px;padding:10px 8px;text-align:center;font-size:14px" required>
+                        <span style="color:var(--text-muted);font-size:18px;line-height:1">:</span>
+                        <input type="number" id="editTimeMinute" class="form-input" placeholder="MM" min="0" max="59" style="width:50px;padding:10px 8px;text-align:center;font-size:14px" required>
+                        <select id="editTimeAmPm" class="form-input" style="width:65px;padding:10px 8px;font-size:14px" required>
+                            <option value="AM">AM</option>
+                            <option value="PM">PM</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="grid grid-cols-2" style="gap:var(--space-4)">
+                <button type="button" class="btn btn-outline" onclick="closeEditModal()">Cancel</button>
+                <button type="submit" class="btn btn-primary" id="saveEditBtn"><i class="fas fa-check"></i> Save Changes</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let allTransactions=[],creditTransactions=[],debitTransactions=[];
+
+async function loadTransactions(){
+    try{
+        const r=await fetch('/api/transactions');
+        const res=await r.json();
+        if(res.success){
+            allTransactions=res.transactions||[];
+            creditTransactions=allTransactions.filter(t=>t.payment_type==='credit');
+            debitTransactions=allTransactions.filter(t=>t.payment_type==='debit');
+            applyFilters();
+        }else{
+            showEmptyState('creditList','Error loading transactions');
+            showEmptyState('debitList','Error loading transactions');
+        }
+    }catch(e){
+        showEmptyState('creditList','Error loading transactions');
+        showEmptyState('debitList','Error loading transactions');
+    }
+}
+
+function renderTransactions(){
+    renderList('creditList',creditTransactions,'credit');
+    renderList('debitList',debitTransactions,'debit');
+    updateCounts();
+}
+
+function renderList(containerId,transactions,type){
+    const c=document.getElementById(containerId);
+    if(!transactions.length){
+        c.innerHTML=`<div style="text-align:center;color:var(--text-muted);padding:var(--space-8)"><i class="fas fa-receipt" style="font-size:2rem;margin-bottom:12px;display:block;opacity:.4"></i><p style="font-size:var(--fs-sm)">No ${type} transactions</p></div>`;
+        return;
+    }
+    
+    const sorted=[...transactions].sort((a,b)=>new Date(b.date)-new Date(a.date));
+    const ic=type==='credit',co=ic?'var(--success)':'var(--danger)',bg=ic?'var(--success-bg)':'var(--danger-bg)';
+    
+    c.innerHTML=sorted.map((t,idx)=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--border);transition:var(--transition);border-radius:var(--radius-lg);margin-bottom:4px;background:rgba(255,255,255,.02)">
+        <div style="display:flex;align-items:center;gap:12px;flex:1">
+            <div style="width:36px;height:36px;background:${bg};border-radius:var(--radius-lg);display:flex;align-items:center;justify-content:center;flex-shrink:0"><i class="fas ${ic?'fa-arrow-down':'fa-arrow-up'}" style="color:${co};font-size:11px"></i></div>
+            <div style="min-width:0;flex:1"><div style="font-weight:500;font-size:var(--fs-sm);margin-bottom:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.name||'Unknown'}</div><span style="display:inline-block;padding:2px 8px;background:var(--bg-glass);border-radius:var(--radius-full);font-size:var(--fs-xs);color:var(--text-muted)">${t.payee_type||'Other'}</span></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px">
+            <div style="text-align:right">
+                <div style="font-weight:600;font-size:var(--fs-sm);color:${co};margin-bottom:2px">₹${t.amount.toLocaleString()}</div>
+                <div style="font-size:var(--fs-xs);color:var(--text-muted)">${new Date(t.date).toLocaleDateString('en-US',{month:'short',day:'numeric'})}</div>
+            </div>
+            <div style="display:flex;gap:4px">
+                <button onclick="editTransaction('${type}',${idx})" class="btn-icon" title="Edit" style="padding:6px 8px;background:rgba(99,102,241,.1);border:none;border-radius:var(--radius-md);color:var(--accent-light);cursor:pointer;transition:var(--transition)"><i class="fas fa-edit" style="font-size:12px"></i></button>
+                <button onclick="deleteTransaction('${type}',${idx})" class="btn-icon" title="Delete" style="padding:6px 8px;background:rgba(239,68,68,.1);border:none;border-radius:var(--radius-md);color:var(--danger);cursor:pointer;transition:var(--transition)"><i class="fas fa-trash" style="font-size:12px"></i></button>
+            </div>
+        </div>
+    </div>`).join('');
+}
+
+function showEmptyState(containerId,msg){
+    document.getElementById(containerId).innerHTML=`<div style="text-align:center;color:var(--text-muted);padding:var(--space-8)"><i class="fas fa-exclamation-circle" style="font-size:2rem;margin-bottom:12px;display:block;opacity:.4"></i><p style="font-size:var(--fs-sm)">${msg}</p></div>`;
+}
+
+function updateCounts(){
+    document.getElementById('creditCount').textContent=`${creditTransactions.length} transaction${creditTransactions.length!==1?'s':''}`;
+    document.getElementById('debitCount').textContent=`${debitTransactions.length} transaction${debitTransactions.length!==1?'s':''}`;
+}
+
+function applyFilters(){
+    const cf=document.getElementById('categoryFilter').value,df=document.getElementById('dateFrom').value,dt=document.getElementById('dateTo').value;
+    
+    creditTransactions=allTransactions.filter(t=>{
+        if(t.payment_type!=='credit')return false;
+        if(cf!=='all'&&t.payee_type!==cf)return false;
+        if(df||dt){
+            const td=new Date(t.date);
+            // Make dates inclusive by comparing only the date part
+            if(df){
+                const fromDate=new Date(df);
+                fromDate.setHours(0,0,0,0);
+                td.setHours(0,0,0,0);
+                if(td<fromDate)return false;
+            }
+            if(dt){
+                const toDate=new Date(dt);
+                toDate.setHours(23,59,59,999); // Include entire end date
+                if(td>toDate)return false;
+            }
+        }
+        return true;
+    });
+    
+    debitTransactions=allTransactions.filter(t=>{
+        if(t.payment_type!=='debit')return false;
+        if(cf!=='all'&&t.payee_type!==cf)return false;
+        if(df||dt){
+            const td=new Date(t.date);
+            // Make dates inclusive by comparing only the date part
+            if(df){
+                const fromDate=new Date(df);
+                fromDate.setHours(0,0,0,0);
+                td.setHours(0,0,0,0);
+                if(td<fromDate)return false;
+            }
+            if(dt){
+                const toDate=new Date(dt);
+                toDate.setHours(23,59,59,999); // Include entire end date
+                if(td>toDate)return false;
+            }
+        }
+        return true;
+    });
+    
+    renderTransactions();
+}
+
+function clearFilters(){
+    document.getElementById('categoryFilter').value='all';
+    document.getElementById('dateFrom').value='';
+    document.getElementById('dateTo').value='';
+    creditTransactions=allTransactions.filter(t=>t.payment_type==='credit');
+    debitTransactions=allTransactions.filter(t=>t.payment_type==='debit');
+    renderTransactions();
+}
+
+function exportData(){
+    const toExport=[...creditTransactions,...debitTransactions];
+    if(!toExport.length){alert('No transactions to export');return}
+    const h=['Date','Time','Name','Amount','Type','Category'],csv=[h.join(','),...toExport.map(t=>[t.date,t.time||'',`"${t.name||''}"`,t.amount,t.payment_type,t.payee_type||'Other'].join(','))].join('\n');
+    const b=new Blob([csv],{type:'text/csv'}),u=URL.createObjectURL(b),a=document.createElement('a');
+    a.href=u;a.download=`transactions_${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(u);
+}
+
+function editTransaction(type,idx){
+    const transactions=type==='credit'?creditTransactions:debitTransactions;
+    const t=transactions[idx];
+    
+    // Fill modal with transaction data
+    document.getElementById('editId').value=t.id||'';
+    document.getElementById('editType').value=t.payment_type||'debit';
+    document.getElementById('editName').value=t.name||'';
+    document.getElementById('editAmount').value=t.amount||0;
+    document.getElementById('editPaymentType').value=t.payment_type||'debit';
+    document.getElementById('editPayeeType').value=t.payee_type||'Other';
+    document.getElementById('editDate').value=t.date?t.date.split('T')[0]:'';
+    
+    // Parse time
+    if(t.time){
+        const[hours24,minutes]=t.time.split(':');
+        let hours=parseInt(hours24);
+        const ampm=hours>=12?'PM':'AM';
+        hours=hours%12||12;
+        document.getElementById('editTimeHour').value=hours;
+        document.getElementById('editTimeMinute').value=minutes;
+        document.getElementById('editTimeAmPm').value=ampm;
+    }
+    
+    // Show modal
+    document.getElementById('editModal').style.display='flex';
+}
+
+function closeEditModal(){
+    document.getElementById('editModal').style.display='none';
+}
+
+async function saveEdit(e){
+    e.preventDefault();
+    const btn=document.getElementById('saveEditBtn');
+    const orig=btn.innerHTML;
+    btn.disabled=true;
+    btn.innerHTML='<span class="spin"></span> Saving...';
+    
+    try{
+        const hour=parseInt(document.getElementById('editTimeHour').value)||0;
+        const minute=parseInt(document.getElementById('editTimeMinute').value)||0;
+        const ampm=document.getElementById('editTimeAmPm').value;
+        let hour24=hour;
+        if(ampm==='PM'&&hour!==12)hour24=hour+12;
+        if(ampm==='AM'&&hour===12)hour24=0;
+        const time=`${hour24.toString().padStart(2,'0')}:${minute.toString().padStart(2,'0')}`;
+        
+        const data={
+            id:document.getElementById('editId').value,
+            name:document.getElementById('editName').value,
+            amount:parseFloat(document.getElementById('editAmount').value),
+            payment_type:document.getElementById('editPaymentType').value,
+            payee_type:document.getElementById('editPayeeType').value,
+            date:document.getElementById('editDate').value,
+            time:time
+        };
+        
+        const res=await fetch(`/api/transaction/${data.id}`,{
+            method:'PUT',
+            headers:{'Content-Type':'application/json'},
+            body:JSON.stringify(data)
+        });
+        
+        const result=await res.json();
+        if(result.success){
+            closeEditModal();
+            loadTransactions();
+        }else{
+            alert(result.message||'Failed to update transaction');
+        }
+    }catch(e){
+        alert('Error updating transaction');
+    }finally{
+        btn.disabled=false;
+        btn.innerHTML=orig;
+    }
+}
+
+async function deleteTransaction(type,idx){
+    if(!confirm('Are you sure you want to delete this transaction?'))return;
+    const transactions=type==='credit'?creditTransactions:debitTransactions;
+    const t=transactions[idx];
+    try{
+        const res=await fetch(`/api/transaction/${t.id}`,{method:'DELETE'});
+        const result=await res.json();
+        if(result.success){
+            alert('Transaction deleted successfully');
+            loadTransactions();
+        }else{
+            alert(result.message||'Failed to delete transaction');
+        }
+    }catch(e){
+        alert('Error deleting transaction');
+    }
+}
+
+const today=new Date(),ago=new Date(today.getTime()-30*86400000);
+// Don't set default date filters - show all transactions by default
+// document.getElementById('dateTo').value=today.toISOString().split('T')[0];
+// document.getElementById('dateFrom').value=ago.toISOString().split('T')[0];
+document.addEventListener('DOMContentLoaded',loadTransactions);
+</script>
+{% endblock %}

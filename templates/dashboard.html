@@ -1,0 +1,684 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - FinAnalyzer{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+
+{% block content %}
+<!-- Hero Balance Card -->
+<div class="hero-balance" style="margin-bottom:var(--space-8);animation:fadeUp .6s var(--ease) both">
+    <div style="background:var(--bg-glass);backdrop-filter:blur(20px);border:1px solid var(--border);border-radius:var(--radius-2xl);padding:32px 36px;position:relative;overflow:hidden">
+        <div style="position:absolute;inset:0;background:linear-gradient(135deg,rgba(99,102,241,.08),rgba(139,92,246,.05),transparent);pointer-events:none"></div>
+        <div style="position:absolute;top:-40px;right:-40px;width:200px;height:200px;background:radial-gradient(circle,rgba(99,102,241,.12),transparent 70%);pointer-events:none"></div>
+        <div style="position:relative;z-index:1">
+            <p style="font-size:var(--fs-sm);color:var(--text-muted);font-weight:500;letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px">Total Balance</p>
+            <div id="heroBalance" style="font-size:clamp(2rem,4vw,3rem);font-weight:800;letter-spacing:-.03em;margin-bottom:12px">₹0</div>
+            <div style="display:flex;gap:24px;flex-wrap:wrap">
+                <div style="display:flex;align-items:center;gap:8px">
+                    <span style="width:28px;height:28px;background:var(--success-bg);border-radius:var(--radius-md);display:flex;align-items:center;justify-content:center">
+                        <i class="fas fa-arrow-up" style="color:var(--success);font-size:11px"></i>
+                    </span>
+                    <span style="font-size:var(--fs-sm);color:var(--text-secondary)">Income</span>
+                    <span id="heroIncome" style="font-size:var(--fs-sm);font-weight:600;color:var(--success)">₹0</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px">
+                    <span style="width:28px;height:28px;background:var(--danger-bg);border-radius:var(--radius-md);display:flex;align-items:center;justify-content:center">
+                        <i class="fas fa-arrow-down" style="color:var(--danger);font-size:11px"></i>
+                    </span>
+                    <span style="font-size:var(--fs-sm);color:var(--text-secondary)">Expenses</span>
+                    <span id="heroExpenses" style="font-size:var(--fs-sm);font-weight:600;color:var(--danger)">₹0</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Stat Cards -->
+<div class="grid grid-cols-4" style="margin-bottom:var(--space-8)">
+    <div class="stat-card" style="animation:fadeUp .6s var(--ease) .1s both">
+        <div class="stat-icon" style="background:linear-gradient(135deg,#10b981,#059669)"><i class="fas fa-arrow-trend-up"></i></div>
+        <div class="stat-value" id="totalIncome">₹0</div>
+        <div class="stat-label">Total Income</div>
+    </div>
+    <div class="stat-card" style="animation:fadeUp .6s var(--ease) .15s both">
+        <div class="stat-icon" style="background:linear-gradient(135deg,#ef4444,#dc2626)"><i class="fas fa-arrow-trend-down"></i></div>
+        <div class="stat-value" id="totalExpenses">₹0</div>
+        <div class="stat-label">Total Expenses</div>
+    </div>
+    <div class="stat-card" style="animation:fadeUp .6s var(--ease) .2s both">
+        <div class="stat-icon" style="background:linear-gradient(135deg,#f59e0b,#d97706)"><i class="fas fa-piggy-bank"></i></div>
+        <div class="stat-value" id="savingsPercent">0%</div>
+        <div class="stat-label">Savings Rate</div>
+    </div>
+    <div class="stat-card" style="animation:fadeUp .6s var(--ease) .25s both">
+        <div class="stat-icon"><i class="fas fa-receipt"></i></div>
+        <div class="stat-value" id="transactionCount">0</div>
+        <div class="stat-label">Transactions</div>
+    </div>
+</div>
+
+<!-- Savings Goal & Alerts Row -->
+<div class="grid grid-cols-2" style="margin-bottom:var(--space-8)">
+    <!-- Savings Goal Widget -->
+    <div class="card" style="animation:fadeUp .6s var(--ease) .28s both">
+        <div class="card-header">
+            <h3 class="card-title"><i class="fas fa-piggy-bank" style="color:var(--success);margin-right:8px"></i>Monthly Savings Goal</h3>
+            <button class="btn btn-sm btn-outline" onclick="openSavingsGoalModal()"><i class="fas fa-cog"></i></button>
+        </div>
+        <div id="savingsGoalWidget">
+            <div style="text-align:center;padding:var(--space-6);color:var(--text-muted)">
+                <i class="fas fa-target" style="font-size:2rem;opacity:.3;margin-bottom:12px;display:block"></i>
+                <p style="margin-bottom:12px">Set a monthly savings goal</p>
+                <button class="btn btn-primary btn-sm" onclick="openSavingsGoalModal()">Set Goal</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Active Alerts Widget -->
+    <div class="card" style="animation:fadeUp .6s var(--ease) .3s both">
+        <div class="card-header">
+            <h3 class="card-title"><i class="fas fa-bell" style="color:var(--warning);margin-right:8px"></i>Spending Alerts</h3>
+            <div style="display:flex;gap:8px">
+                <button class="btn btn-sm btn-outline" onclick="manageAlertsModal()"><i class="fas fa-cog"></i></button>
+                <button class="btn btn-sm btn-outline" onclick="openAlertsModal()"><i class="fas fa-plus"></i></button>
+            </div>
+        </div>
+        <div id="alertsWidget">
+            <div style="text-align:center;padding:var(--space-6);color:var(--text-muted)">
+                <i class="fas fa-bell-slash" style="font-size:2rem;opacity:.3;margin-bottom:12px;display:block"></i>
+                <p style="margin-bottom:12px">No active alerts</p>
+                <button class="btn btn-primary btn-sm" onclick="openAlertsModal()">Add Alert</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Charts Row -->
+<div class="grid grid-cols-2" style="margin-bottom:var(--space-8)">
+    <div class="card" style="animation:fadeUp .6s var(--ease) .3s both">
+        <div class="card-header">
+            <h3 class="card-title">Spending by Category</h3>
+        </div>
+        <div class="chart-container" style="height:220px;max-height:220px"><canvas id="categoryChart"></canvas></div>
+    </div>
+    <div class="card" style="animation:fadeUp .6s var(--ease) .35s both">
+        <div class="card-header">
+            <h3 class="card-title">Monthly Trend</h3>
+        </div>
+        <div class="chart-container" style="height:220px;max-height:220px"><canvas id="trendChart"></canvas></div>
+    </div>
+</div>
+
+<!-- Recent Transactions + AI Insights -->
+<div class="grid grid-cols-2">
+    <div class="card" style="animation:fadeUp .6s var(--ease) .4s both">
+        <div class="card-header">
+            <h3 class="card-title">Recent Transactions</h3>
+            <a href="/history" class="btn btn-outline" style="padding:6px 14px;font-size:var(--fs-xs)">View All</a>
+        </div>
+        <div id="recentTransactions">
+            <div style="text-align:center;color:var(--text-muted);padding:var(--space-8)">
+                <div class="skeleton" style="width:100%;height:48px;margin-bottom:8px"></div>
+                <div class="skeleton" style="width:100%;height:48px;margin-bottom:8px"></div>
+                <div class="skeleton" style="width:100%;height:48px"></div>
+            </div>
+        </div>
+    </div>
+    <div class="card" style="animation:fadeUp .6s var(--ease) .45s both">
+        <div class="card-header">
+            <h3 class="card-title"><i class="fas fa-brain" style="color:var(--accent-light);margin-right:8px"></i>AI Insights</h3>
+        </div>
+        <div id="aiInsights" style="display:flex;flex-direction:column;gap:10px">
+            <div style="padding:14px 16px;background:rgba(99,102,241,.06);border:1px solid rgba(99,102,241,.12);border-radius:var(--radius-xl);display:flex;align-items:flex-start;gap:12px">
+                <i class="fas fa-lightbulb" style="color:var(--accent-light);margin-top:2px;font-size:14px"></i>
+                <div>
+                    <div style="font-size:var(--fs-sm);font-weight:500;margin-bottom:2px">Upload transactions to get started</div>
+                    <div style="font-size:var(--fs-xs);color:var(--text-muted)">AI insights will appear here once you have data</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let categoryChart, trendChart;
+
+    // Modal styles
+    const modalStyles = document.createElement('style');
+    modalStyles.textContent = `
+        .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.75);backdrop-filter:blur(8px);z-index:9999;display:flex;align-items:center;justify-content:center;padding:var(--space-6);animation:fadeIn .3s var(--ease)}
+        .modal-dialog{background:#1a1f2e;border:1px solid rgba(255,255,255,.15);border-radius:var(--radius-2xl);width:100%;box-shadow:var(--shadow-xl);animation:slideUp .3s var(--ease);max-height:90vh;display:flex;flex-direction:column}
+        .modal-header{padding:var(--space-5) var(--space-6);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:rgba(255,255,255,.02)}
+        .modal-header h3{font-size:var(--fs-xl);font-weight:600}
+        .modal-close{background:transparent;border:none;color:var(--text-muted);cursor:pointer;width:32px;height:32px;border-radius:var(--radius-lg);display:flex;align-items:center;justify-content:center;transition:var(--transition)}
+        .modal-close:hover{background:rgba(255,255,255,.1);color:var(--text-primary)}
+        .modal-body{padding:var(--space-6);overflow-y:auto;background:#1a1f2e}
+        @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+        @keyframes slideUp{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}
+    `;
+    document.head.appendChild(modalStyles);
+
+    async function loadDashboardData() {
+        try {
+            const response = await fetch('/api/dashboard-data');
+            const result = await response.json();
+
+            if (result.success) {
+                const data = result.data;
+
+                // Animate hero numbers
+                animateCounter(document.getElementById('heroBalance'), data.balance, '₹');
+                animateCounter(document.getElementById('heroIncome'), data.total_income, '₹');
+                animateCounter(document.getElementById('heroExpenses'), data.total_expenses, '₹');
+                animateCounter(document.getElementById('totalIncome'), data.total_income, '₹');
+                animateCounter(document.getElementById('totalExpenses'), data.total_expenses, '₹');
+
+                const txCount = data.recent_transactions.length;
+                animateCounter(document.getElementById('transactionCount'), txCount);
+
+                // Savings rate
+                const savingsRate = data.total_income > 0 ? Math.round(((data.total_income - data.total_expenses) / data.total_income) * 100) : 0;
+                animateCounter(document.getElementById('savingsPercent'), savingsRate, '', '%');
+
+                updateRecentTransactions(data.recent_transactions);
+                updateAIInsights(data);
+            }
+
+            const categoriesResponse = await fetch('/api/spending-categories');
+            const categoriesResult = await categoriesResponse.json();
+            if (categoriesResult.success) updateCategoryChart(categoriesResult.data);
+        } catch (error) {
+            console.error('Error loading dashboard data:', error);
+        }
+    }
+
+    function updateRecentTransactions(transactions) {
+        const container = document.getElementById('recentTransactions');
+        if (transactions.length === 0) {
+            container.innerHTML = '<div style="text-align:center;color:var(--text-muted);padding:var(--space-8)"><i class="fas fa-receipt" style="font-size:2rem;margin-bottom:12px;display:block;opacity:.5"></i><p style="margin-bottom:12px">No transactions yet</p><a href="/upload" class="btn btn-primary" style="font-size:var(--fs-sm)">Upload First Transaction</a></div>';
+            return;
+        }
+        container.innerHTML = transactions.slice(0, 5).map(tx => {
+            const isCredit = tx.payment_type === 'credit';
+            const color = isCredit ? 'var(--success)' : 'var(--danger)';
+            const bg = isCredit ? 'var(--success-bg)' : 'var(--danger-bg)';
+            return `<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--border);transition:var(--transition)">
+                <div style="display:flex;align-items:center;gap:12px">
+                    <div style="width:38px;height:38px;background:${bg};border-radius:var(--radius-lg);display:flex;align-items:center;justify-content:center">
+                        <i class="fas ${isCredit?'fa-arrow-up':'fa-arrow-down'}" style="color:${color};font-size:12px"></i>
+                    </div>
+                    <div>
+                        <div style="font-weight:500;font-size:var(--fs-sm)">${tx.name||'Unknown'}</div>
+                        <span style="display:inline-block;padding:2px 8px;background:var(--bg-glass);border-radius:var(--radius-full);font-size:var(--fs-xs);color:var(--text-muted)">${tx.payee_type||'Other'}</span>
+                    </div>
+                </div>
+                <div style="text-align:right">
+                    <div style="font-weight:600;font-size:var(--fs-sm);color:${color}">${isCredit?'+':'-'}₹${tx.amount.toLocaleString()}</div>
+                    <div style="font-size:var(--fs-xs);color:var(--text-muted)">${new Date(tx.date).toLocaleDateString()}</div>
+                </div>
+            </div>`;
+        }).join('');
+    }
+
+    function updateAIInsights(data) {
+        const container = document.getElementById('aiInsights');
+        const insights = [];
+        if (data.total_expenses > 0 && data.total_income > 0) {
+            const ratio = Math.round((data.total_expenses / data.total_income) * 100);
+            insights.push({ icon: 'fa-chart-pie', text: `You're spending ${ratio}% of your income`, sub: ratio > 80 ? 'Consider reducing expenses' : 'Healthy spending ratio' });
+        }
+        if (data.recent_transactions.length > 0) {
+            const latest = data.recent_transactions[0];
+            insights.push({ icon: 'fa-clock', text: `Last transaction: ₹${latest.amount.toLocaleString()} to ${latest.name || 'Unknown'}`, sub: latest.payee_type || 'Uncategorized' });
+        }
+        if (data.balance < 0) insights.push({ icon: 'fa-triangle-exclamation', text: 'Your balance is negative', sub: 'Expenses exceed income — review spending' });
+        if (insights.length === 0) return;
+
+        container.innerHTML = insights.map(i => `<div style="padding:14px 16px;background:rgba(99,102,241,.06);border:1px solid rgba(99,102,241,.12);border-radius:var(--radius-xl);display:flex;align-items:flex-start;gap:12px">
+            <i class="fas ${i.icon}" style="color:var(--accent-light);margin-top:2px;font-size:14px"></i>
+            <div><div style="font-size:var(--fs-sm);font-weight:500;margin-bottom:2px">${i.text}</div><div style="font-size:var(--fs-xs);color:var(--text-muted)">${i.sub}</div></div>
+        </div>`).join('');
+    }
+
+    function updateCategoryChart(categories) {
+        const ctx = document.getElementById('categoryChart').getContext('2d');
+        if (categoryChart) categoryChart.destroy();
+        const labels = Object.keys(categories), data = Object.values(categories);
+        if (labels.length === 0) { ctx.fillStyle='#64748b';ctx.font='14px Inter';ctx.textAlign='center';ctx.fillText('No spending data yet',ctx.canvas.width/2,ctx.canvas.height/2);return; }
+        categoryChart = new Chart(ctx, {
+            type: 'doughnut',
+            data: { labels, datasets: [{ data, backgroundColor: ['#818cf8','#a78bfa','#06b6d4','#10b981','#f59e0b','#ef4444'], borderWidth: 0, borderRadius: 4 }] },
+            options: { responsive:true, maintainAspectRatio:false, cutout:'70%', plugins:{ legend:{ display:true, position:'bottom', labels:{ color:'#94a3b8', font:{family:'Inter',size:11}, padding:12, usePointStyle:true, pointStyleWidth:8 }}}}
+        });
+    }
+
+    function updateTrendChart() {
+        const ctx = document.getElementById('trendChart').getContext('2d');
+        if (trendChart) trendChart.destroy();
+        const labels=['Jan','Feb','Mar','Apr','May','Jun'];
+        trendChart = new Chart(ctx, {
+            type:'line',
+            data:{labels, datasets:[
+                {label:'Income',data:[45000,52000,48000,61000,55000,67000],borderColor:'#10b981',backgroundColor:'rgba(16,185,129,0.08)',tension:.4,fill:true,borderWidth:2,pointRadius:0,pointHoverRadius:5},
+                {label:'Expenses',data:[32000,38000,35000,42000,39000,45000],borderColor:'#ef4444',backgroundColor:'rgba(239,68,68,0.08)',tension:.4,fill:true,borderWidth:2,pointRadius:0,pointHoverRadius:5}
+            ]},
+            options:{responsive:true,maintainAspectRatio:false,
+                plugins:{legend:{display:true,labels:{color:'#94a3b8',font:{family:'Inter',size:11},usePointStyle:true,pointStyleWidth:8}}},
+                scales:{x:{ticks:{color:'#64748b',font:{size:11}},grid:{display:false}},y:{ticks:{color:'#64748b',font:{size:11},callback:v=>'₹'+v.toLocaleString()},grid:{color:'rgba(255,255,255,0.04)'}}}
+            }
+        });
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // SAVINGS GOAL & ALERTS FUNCTIONS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    async function loadSavingsAndAlerts() {
+        try {
+            const response = await fetch('/api/dashboard-alerts');
+            const result = await response.json();
+            
+            if (result.success) {
+                // Handle savings goal widget
+                if (!result.has_income) {
+                    // No income yet - show message to add income
+                    document.getElementById('savingsGoalWidget').innerHTML = `
+                        <div style="text-align:center;padding:var(--space-6);color:var(--text-muted)">
+                            <i class="fas fa-coins" style="font-size:2rem;opacity:.3;margin-bottom:12px;display:block"></i>
+                            <p style="margin-bottom:12px">Add income transactions to track savings</p>
+                            <a href="/upload" class="btn btn-primary btn-sm">Upload Transactions</a>
+                        </div>
+                    `;
+                } else {
+                    updateSavingsGoalWidget(result.savings_progress);
+                }
+                
+                updateAlertsWidget(result.triggered_alerts);
+            }
+        } catch (error) {
+            console.error('Error loading savings/alerts:', error);
+        }
+    }
+
+    function updateSavingsGoalWidget(progress) {
+        const container = document.getElementById('savingsGoalWidget');
+        
+        if (!progress) {
+            container.innerHTML = `
+                <div style="text-align:center;padding:var(--space-6);color:var(--text-muted)">
+                    <i class="fas fa-target" style="font-size:2rem;opacity:.3;margin-bottom:12px;display:block"></i>
+                    <p style="margin-bottom:12px">Set a monthly savings goal</p>
+                    <button class="btn btn-primary btn-sm" onclick="openSavingsGoalModal()">Set Goal</button>
+                </div>
+            `;
+            return;
+        }
+        
+        let statusColor, statusIcon, statusText;
+        
+        if (progress.status === 'achieved') {
+            statusColor = 'var(--success)';
+            statusIcon = 'fa-check-circle';
+            statusText = 'Goal achieved! 🎉';
+        } else if (progress.status === 'negative') {
+            statusColor = 'var(--danger)';
+            statusIcon = 'fa-exclamation-triangle';
+            statusText = 'Expenses exceed income ⚠️';
+        } else {
+            statusColor = 'var(--accent)';
+            statusIcon = 'fa-chart-line';
+            statusText = `₹${progress.remaining.toLocaleString()} remaining`;
+        }
+        
+        container.innerHTML = `
+            <div style="padding:var(--space-5)">
+                <div style="display:flex;justify-content:space-between;margin-bottom:var(--space-4)">
+                    <div>
+                        <div style="font-size:var(--fs-sm);color:var(--text-muted);margin-bottom:4px">Target</div>
+                        <div style="font-size:var(--fs-xl);font-weight:700">₹${progress.target.toLocaleString()}</div>
+                    </div>
+                    <div style="text-align:right">
+                        <div style="font-size:var(--fs-sm);color:var(--text-muted);margin-bottom:4px">Current</div>
+                        <div style="font-size:var(--fs-xl);font-weight:700;color:${statusColor}">₹${progress.current.toLocaleString()}</div>
+                    </div>
+                </div>
+                <div style="background:rgba(255,255,255,.05);border-radius:var(--radius-full);height:12px;overflow:hidden;margin-bottom:var(--space-3)">
+                    <div style="height:100%;background:${statusColor};width:${Math.min(Math.abs(progress.percentage), 100)}%;transition:width .6s var(--ease);border-radius:var(--radius-full)"></div>
+                </div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:var(--space-3)">
+                    <div style="font-size:var(--fs-sm);color:var(--text-muted)">
+                        <i class="fas ${statusIcon}" style="color:${statusColor};margin-right:6px"></i>
+                        ${statusText}
+                    </div>
+                    <div style="font-size:var(--fs-lg);font-weight:600;color:${statusColor}">${Math.round(Math.abs(progress.percentage))}%</div>
+                </div>
+                <div style="font-size:var(--fs-xs);color:var(--text-muted);padding-top:var(--space-2);border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+                    <span>Income: ₹${progress.income.toLocaleString()} • Expenses: ₹${progress.expenses.toLocaleString()}</span>
+                    <button class="btn btn-sm btn-outline" onclick="sendSavingsEmail()" style="padding:4px 10px;font-size:var(--fs-xs)">
+                        <i class="fas fa-envelope"></i> Email Report
+                    </button>
+                </div>
+            </div>
+        `;
+    }
+
+    function updateAlertsWidget(alerts) {
+        const container = document.getElementById('alertsWidget');
+        
+        if (!alerts || alerts.length === 0) {
+            container.innerHTML = `
+                <div style="text-align:center;padding:var(--space-6);color:var(--text-muted)">
+                    <i class="fas fa-bell-slash" style="font-size:2rem;opacity:.3;margin-bottom:12px;display:block"></i>
+                    <p style="margin-bottom:12px">No active alerts</p>
+                    <button class="btn btn-primary btn-sm" onclick="openAlertsModal()">Add Alert</button>
+                </div>
+            `;
+            return;
+        }
+        
+        // Remove duplicates by name+type+category+limit combination
+        const uniqueAlerts = [];
+        const seenKeys = new Set();
+        
+        for (const alert of alerts) {
+            const key = `${alert.name}|${alert.type}|${alert.category}|${alert.limit}`;
+            if (!seenKeys.has(key)) {
+                seenKeys.add(key);
+                uniqueAlerts.push(alert);
+            }
+        }
+        
+        container.innerHTML = `
+            <div style="padding:var(--space-4)">
+                ${uniqueAlerts.map(alert => `
+                    <div style="padding:12px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);border-radius:var(--radius-xl);margin-bottom:8px">
+                        <div style="display:flex;justify-content:space-between;margin-bottom:8px">
+                            <div>
+                                <div style="font-weight:500;margin-bottom:2px">${alert.name}</div>
+                                <div style="font-size:var(--fs-xs);color:var(--text-muted)">${alert.category !== 'all' ? alert.category + ' • ' : ''}${alert.type}</div>
+                            </div>
+                            <div style="text-align:right">
+                                <div style="font-weight:600;color:var(--danger)">₹${alert.current.toLocaleString()}</div>
+                                <div style="font-size:var(--fs-xs);color:var(--text-muted)">of ₹${alert.limit.toLocaleString()}</div>
+                            </div>
+                        </div>
+                        <div style="background:rgba(255,255,255,.05);border-radius:var(--radius-full);height:6px;overflow:hidden">
+                            <div style="height:100%;background:var(--danger);width:${Math.min(alert.percentage, 100)}%;transition:width .6s var(--ease)"></div>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+    }
+
+    function openSavingsGoalModal() {
+        const modal = document.createElement('div');
+        modal.className = 'modal-overlay';
+        modal.style.display = 'flex';
+        modal.innerHTML = `
+            <div class="modal-dialog" style="max-width:500px">
+                <div class="modal-header">
+                    <h3><i class="fas fa-piggy-bank" style="color:var(--success);margin-right:8px"></i>Set Savings Goal</h3>
+                    <button class="modal-close" onclick="this.closest('.modal-overlay').remove()"><i class="fas fa-times"></i></button>
+                </div>
+                <div class="modal-body">
+                    <form id="savingsGoalForm" onsubmit="saveSavingsGoal(event)">
+                        <div class="form-group">
+                            <label class="form-label">Monthly Savings Target</label>
+                            <input type="number" id="savingsTarget" class="form-input" placeholder="Enter amount" required min="0" step="100">
+                        </div>
+                        <div class="form-group">
+                            <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                                <input type="checkbox" id="savingsEnabled" checked>
+                                <span>Enable savings goal tracking</span>
+                            </label>
+                        </div>
+                        <div style="display:flex;gap:var(--space-4);justify-content:flex-end">
+                            <button type="button" class="btn btn-outline" onclick="this.closest('.modal-overlay').remove()">Cancel</button>
+                            <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Save Goal</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+
+    async function saveSavingsGoal(event) {
+        event.preventDefault();
+        
+        const target = parseFloat(document.getElementById('savingsTarget').value);
+        const enabled = document.getElementById('savingsEnabled').checked;
+        
+        try {
+            const response = await fetch('/api/user-settings/savings-goal', {
+                method: 'PUT',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({monthly_target: target, enabled})
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                if (window.FinAnalyzer) window.FinAnalyzer.showNotification('Savings goal updated', 'success');
+                document.querySelector('.modal-overlay').remove();
+                loadSavingsAndAlerts();
+            } else {
+                if (window.FinAnalyzer) window.FinAnalyzer.showNotification(result.message, 'error');
+            }
+        } catch (error) {
+            if (window.FinAnalyzer) window.FinAnalyzer.showNotification('Error saving goal', 'error');
+        }
+    }
+
+    function openAlertsModal() {
+        const modal = document.createElement('div');
+        modal.className = 'modal-overlay';
+        modal.style.display = 'flex';
+        modal.innerHTML = `
+            <div class="modal-dialog" style="max-width:500px">
+                <div class="modal-header">
+                    <h3><i class="fas fa-bell" style="color:var(--warning);margin-right:8px"></i>Add Spending Alert</h3>
+                    <button class="modal-close" onclick="this.closest('.modal-overlay').remove()"><i class="fas fa-times"></i></button>
+                </div>
+                <div class="modal-body">
+                    <form id="alertForm" onsubmit="saveAlert(event)">
+                        <div class="form-group">
+                            <label class="form-label">Alert Name</label>
+                            <input type="text" id="alertName" class="form-input" placeholder="e.g., Monthly Budget" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Spending Limit</label>
+                            <input type="number" id="alertLimit" class="form-input" placeholder="Enter amount" required min="0" step="100">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Period</label>
+                            <select id="alertType" class="form-input">
+                                <option value="daily">Daily</option>
+                                <option value="weekly">Weekly</option>
+                                <option value="monthly" selected>Monthly</option>
+                                <option value="yearly">Yearly</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Category</label>
+                            <select id="alertCategory" class="form-input">
+                                <option value="all">All Categories</option>
+                                <option value="Food">Food</option>
+                                <option value="Transport">Transport</option>
+                                <option value="Shopping">Shopping</option>
+                                <option value="Entertainment">Entertainment</option>
+                                <option value="Bills">Bills</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                        <div style="display:flex;gap:var(--space-4);justify-content:flex-end">
+                            <button type="button" class="btn btn-outline" onclick="this.closest('.modal-overlay').remove()">Cancel</button>
+                            <button type="submit" class="btn btn-primary"><i class="fas fa-plus"></i> Add Alert</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+
+    async function saveAlert(event) {
+        event.preventDefault();
+        
+        const alert = {
+            name: document.getElementById('alertName').value,
+            limit: parseFloat(document.getElementById('alertLimit').value),
+            type: document.getElementById('alertType').value,
+            category: document.getElementById('alertCategory').value,
+            transaction_type: 'debit'  // Always debit (spending alerts only)
+        };
+        
+        try {
+            const response = await fetch('/api/user-settings/spending-alerts', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(alert)
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                if (window.FinAnalyzer) window.FinAnalyzer.showNotification('Alert added', 'success');
+                document.querySelector('.modal-overlay').remove();
+                loadSavingsAndAlerts();
+            } else {
+                if (window.FinAnalyzer) window.FinAnalyzer.showNotification(result.message, 'error');
+            }
+        } catch (error) {
+            if (window.FinAnalyzer) window.FinAnalyzer.showNotification('Error adding alert', 'error');
+        }
+    }
+
+    async function sendSavingsEmail() {
+        try {
+            const response = await fetch('/api/send-savings-email', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'}
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                if (window.FinAnalyzer) window.FinAnalyzer.showNotification('Savings report sent to your email', 'success');
+            } else {
+                if (window.FinAnalyzer) window.FinAnalyzer.showNotification(result.message || 'Failed to send email', 'error');
+            }
+        } catch (error) {
+            if (window.FinAnalyzer) window.FinAnalyzer.showNotification('Error sending email', 'error');
+        }
+    }
+
+    async function sendAlertEmail(alertId) {
+        try {
+            const response = await fetch(`/api/send-alert-email/${alertId}`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'}
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                if (window.FinAnalyzer) window.FinAnalyzer.showNotification('Alert email sent', 'success');
+            } else {
+                if (window.FinAnalyzer) window.FinAnalyzer.showNotification(result.message || 'Failed to send email', 'error');
+            }
+        } catch (error) {
+            if (window.FinAnalyzer) window.FinAnalyzer.showNotification('Error sending email', 'error');
+        }
+    }
+
+    async function manageAlertsModal() {
+        try {
+            const response = await fetch('/api/user-settings');
+            const result = await response.json();
+            
+            if (!result.success) {
+                if (window.FinAnalyzer) window.FinAnalyzer.showNotification('Failed to load alerts', 'error');
+                return;
+            }
+            
+            const allAlerts = result.settings?.spending_alerts || [];
+            
+            const modal = document.createElement('div');
+            modal.className = 'modal-overlay';
+            modal.style.display = 'flex';
+            modal.innerHTML = `
+                <div class="modal-dialog" style="max-width:600px">
+                    <div class="modal-header">
+                        <h3><i class="fas fa-cog" style="color:var(--warning);margin-right:8px"></i>Manage Alerts</h3>
+                        <button class="modal-close" onclick="this.closest('.modal-overlay').remove()"><i class="fas fa-times"></i></button>
+                    </div>
+                    <div class="modal-body" style="max-height:500px;overflow-y:auto">
+                        ${allAlerts.length === 0 ? `
+                            <div style="text-align:center;padding:var(--space-8);color:var(--text-muted)">
+                                <i class="fas fa-bell-slash" style="font-size:2rem;opacity:.3;margin-bottom:12px;display:block"></i>
+                                <p>No alerts created yet</p>
+                            </div>
+                        ` : allAlerts.map(alert => `
+                            <div style="padding:var(--space-4);background:var(--bg-glass);border:1px solid var(--border);border-radius:var(--radius-xl);margin-bottom:var(--space-3)">
+                                <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:var(--space-2)">
+                                    <div>
+                                        <div style="font-weight:600;margin-bottom:4px">${alert.name}</div>
+                                        <div style="font-size:var(--fs-sm);color:var(--text-muted)">
+                                            ${alert.type} • ${alert.category !== 'all' ? alert.category : 'All Categories'} • ₹${alert.limit.toLocaleString()}
+                                        </div>
+                                    </div>
+                                    <button class="btn btn-sm" style="background:var(--danger);color:white;padding:4px 12px" onclick="deleteAlert('${alert.id}')">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                                <div style="font-size:var(--fs-xs);color:var(--text-muted)">
+                                    Created: ${new Date(alert.created_at).toLocaleDateString()}
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        } catch (error) {
+            if (window.FinAnalyzer) window.FinAnalyzer.showNotification('Error loading alerts', 'error');
+        }
+    }
+
+    async function deleteAlert(alertId) {
+        if (!confirm('Delete this alert?')) return;
+        
+        try {
+            const response = await fetch(`/api/user-settings/spending-alerts/${alertId}`, {
+                method: 'DELETE'
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                if (window.FinAnalyzer) window.FinAnalyzer.showNotification('Alert deleted', 'success');
+                document.querySelector('.modal-overlay').remove();
+                loadSavingsAndAlerts();
+            } else {
+                if (window.FinAnalyzer) window.FinAnalyzer.showNotification(result.message || 'Failed to delete', 'error');
+            }
+        } catch (error) {
+            if (window.FinAnalyzer) window.FinAnalyzer.showNotification('Error deleting alert', 'error');
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => { 
+        loadDashboardData(); 
+        updateTrendChart();
+        loadSavingsAndAlerts();
+    });
+
+    // Load everything
+    loadDashboardData();
+    loadSavingsAndAlerts();
+    updateTrendChart();
+</script>
+{% endblock %}

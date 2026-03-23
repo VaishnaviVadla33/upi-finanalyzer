@@ -1,0 +1,217 @@
+{% extends "base.html" %}
+{% block title %}Upload - FinAnalyzer{% endblock %}
+{% block page_title %}OCR Scan{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-2" style="gap:var(--space-8)">
+    <!-- Upload Section -->
+    <div class="card" style="animation:fadeUp .6s var(--ease) both">
+        <div class="card-header">
+            <div>
+                <h3 class="card-title"><i class="fas fa-camera" style="color:var(--accent-light);margin-right:8px"></i>Upload UPI Screenshot</h3>
+                <p class="card-subtitle">Drop a screenshot for automatic data extraction</p>
+            </div>
+            <a href="/upload-bulk" class="btn btn-outline btn-sm">
+                <i class="fas fa-images"></i> Bulk Upload
+            </a>
+        </div>
+        <div class="upload-zone" id="uploadArea">
+            <div class="upload-zone-inner">
+                <div style="width:64px;height:64px;background:rgba(99,102,241,.1);border-radius:var(--radius-xl);display:flex;align-items:center;justify-content:center;margin:0 auto 16px">
+                    <i class="fas fa-cloud-arrow-up" style="font-size:24px;color:var(--accent-light)"></i>
+                </div>
+                <h4 style="font-weight:600;margin-bottom:6px">Drop your screenshot here</h4>
+                <p style="color:var(--text-muted);font-size:var(--fs-sm);margin-bottom:16px">PNG, JPG or WEBP — max 10MB</p>
+                <input type="file" id="fileInput" accept="image/*" style="display:none">
+                <button class="btn btn-primary" style="font-size:var(--fs-sm)" onclick="document.getElementById('fileInput').click()">
+                    <i class="fas fa-folder-open"></i> Choose File
+                </button>
+            </div>
+        </div>
+        <div id="imagePreview" style="display:none;margin-top:16px;text-align:center">
+            <img id="previewImg" style="max-height:200px;border-radius:var(--radius-xl);box-shadow:var(--shadow-lg);margin:0 auto">
+        </div>
+        <div id="uploadProgress" style="display:none;margin-top:16px">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+                <div class="spin" style="width:16px;height:16px;border-width:2px"></div>
+                <span style="font-size:var(--fs-sm);color:var(--accent-light);font-weight:500">Analyzing receipt...</span>
+            </div>
+            <div style="background:rgba(255,255,255,.06);border-radius:var(--radius-full);height:6px;overflow:hidden">
+                <div id="progressBar" style="background:var(--gradient);height:100%;width:0%;transition:width .3s var(--ease);border-radius:var(--radius-full)"></div>
+            </div>
+        </div>
+        <div id="uploadResult" style="display:none;margin-top:16px"></div>
+    </div>
+
+    <!-- Form Section -->
+    <div class="card" style="animation:fadeUp .6s var(--ease) .1s both">
+        <div class="card-header">
+            <div>
+                <h3 class="card-title">Transaction Details</h3>
+                <p class="card-subtitle">Review and edit the extracted data</p>
+            </div>
+        </div>
+        <form id="transactionForm">
+            <div class="form-group"><label class="form-label" for="name">Payee / Sender Name</label><input type="text" id="name" class="form-input" placeholder="Enter name" required></div>
+            <div class="form-group"><label class="form-label" for="amount">Amount (₹)</label><input type="number" id="amount" class="form-input" placeholder="0.00" step="0.01" required></div>
+            <div class="grid grid-cols-2" style="gap:var(--space-4);margin-bottom:var(--space-5)">
+                <div class="form-group" style="margin-bottom:0"><label class="form-label" for="payment_type">Type</label>
+                    <select id="payment_type" class="form-input" required><option value="debit">Debit (Sent)</option><option value="credit">Credit (Received)</option></select></div>
+                <div class="form-group" style="margin-bottom:0"><label class="form-label" for="payee_type">Category</label>
+                    <select id="payee_type" class="form-input" required><option value="Food">Food & Dining</option><option value="Transport">Transport</option><option value="Entertainment">Entertainment</option><option value="Utilities">Utilities</option><option value="Shopping">Shopping</option><option value="Other">Other</option></select></div>
+            </div>
+            <div class="grid grid-cols-2" style="gap:var(--space-4);margin-bottom:var(--space-6)">
+                <div class="form-group" style="margin-bottom:0"><label class="form-label" for="date">Date</label><input type="date" id="date" class="form-input" required></div>
+                <div class="form-group" style="margin-bottom:0">
+                    <label class="form-label" for="time">Time</label>
+                    <div style="display:flex;gap:6px;align-items:center">
+                        <input type="number" id="timeHour" class="form-input" placeholder="HH" min="1" max="12" style="width:50px;padding:10px 8px;text-align:center;font-size:14px" required>
+                        <span style="color:var(--text-muted);font-size:18px;line-height:1">:</span>
+                        <input type="number" id="timeMinute" class="form-input" placeholder="MM" min="0" max="59" style="width:50px;padding:10px 8px;text-align:center;font-size:14px" required>
+                        <select id="timeAmPm" class="form-input" style="width:65px;padding:10px 8px;font-size:14px" required>
+                            <option value="AM">AM</option>
+                            <option value="PM">PM</option>
+                        </select>
+                    </div>
+                    <input type="hidden" id="time" required>
+                </div>
+            </div>
+            <div class="grid grid-cols-2" style="gap:var(--space-4)">
+                <button type="button" class="btn btn-outline" onclick="resetForm()"><i class="fas fa-rotate-left"></i> Reset</button>
+                <button type="submit" class="btn btn-primary" id="saveBtn"><i class="fas fa-check"></i> Save Transaction</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+    .upload-zone{border:2px dashed rgba(99,102,241,.25);border-radius:var(--radius-2xl);padding:var(--space-12);text-align:center;transition:var(--transition);cursor:pointer;position:relative;overflow:hidden}
+    .upload-zone::before{content:'';position:absolute;inset:0;background:radial-gradient(circle at 50% 50%,rgba(99,102,241,.04),transparent 70%);transition:var(--transition);opacity:0}
+    .upload-zone:hover{border-color:rgba(99,102,241,.5);background:rgba(99,102,241,.03)}
+    .upload-zone:hover::before{opacity:1}
+    .upload-zone.dragover{border-color:var(--accent);background:rgba(99,102,241,.06);animation:borderGlow 1.5s infinite}
+    .success-message{background:var(--success-bg);border:1px solid rgba(16,185,129,.2);color:var(--success);padding:12px 16px;border-radius:var(--radius-xl);display:flex;align-items:center;gap:10px;font-size:var(--fs-sm)}
+    .error-message{background:var(--danger-bg);border:1px solid rgba(239,68,68,.2);color:var(--danger);padding:12px 16px;border-radius:var(--radius-xl);display:flex;align-items:center;gap:10px;font-size:var(--fs-sm)}
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const uploadArea = document.getElementById('uploadArea');
+    const fileInput = document.getElementById('fileInput');
+    const uploadProgress = document.getElementById('uploadProgress');
+    const uploadResult = document.getElementById('uploadResult');
+    const transactionForm = document.getElementById('transactionForm');
+
+    // Set current date and time in 12-hour format
+    document.getElementById('date').value = new Date().toISOString().split('T')[0];
+    const now = new Date();
+    let hours = now.getHours();
+    const minutes = now.getMinutes();
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    hours = hours % 12 || 12;
+    document.getElementById('timeHour').value = hours;
+    document.getElementById('timeMinute').value = minutes.toString().padStart(2, '0');
+    document.getElementById('timeAmPm').value = ampm;
+    updateHiddenTime();
+
+    // Update hidden time field when time inputs change
+    function updateHiddenTime() {
+        const hour = parseInt(document.getElementById('timeHour').value) || 0;
+        const minute = parseInt(document.getElementById('timeMinute').value) || 0;
+        const ampm = document.getElementById('timeAmPm').value;
+        let hour24 = hour;
+        if (ampm === 'PM' && hour !== 12) hour24 = hour + 12;
+        if (ampm === 'AM' && hour === 12) hour24 = 0;
+        document.getElementById('time').value = `${hour24.toString().padStart(2,'0')}:${minute.toString().padStart(2,'0')}`;
+    }
+    document.getElementById('timeHour').addEventListener('input', updateHiddenTime);
+    document.getElementById('timeMinute').addEventListener('input', updateHiddenTime);
+    document.getElementById('timeAmPm').addEventListener('change', updateHiddenTime);
+
+    uploadArea.addEventListener('dragover', (e) => { e.preventDefault(); uploadArea.classList.add('dragover'); });
+    uploadArea.addEventListener('dragleave', () => { uploadArea.classList.remove('dragover'); });
+    uploadArea.addEventListener('drop', (e) => { e.preventDefault(); uploadArea.classList.remove('dragover'); if (e.dataTransfer.files.length > 0) handleFileUpload(e.dataTransfer.files[0]); });
+    // Only trigger file input when clicking the button, not the entire upload area
+    fileInput.addEventListener('change', (e) => { if (e.target.files.length > 0) handleFileUpload(e.target.files[0]); });
+
+    let isUploading = false;
+    async function handleFileUpload(file) {
+        if (isUploading) return;
+        if (!file.type.startsWith('image/')) { showResult('Please select an image file', 'error'); return; }
+        isUploading = true;
+
+        // Show preview
+        const reader = new FileReader();
+        reader.onload = (e) => { document.getElementById('previewImg').src = e.target.result; document.getElementById('imagePreview').style.display = 'block'; };
+        reader.readAsDataURL(file);
+
+        const formData = new FormData(); formData.append('file', file);
+        uploadProgress.style.display = 'block'; uploadResult.style.display = 'none';
+        let progress = 0;
+        const progressInterval = setInterval(() => { progress += Math.random() * 20; if (progress > 90) progress = 90; document.getElementById('progressBar').style.width = progress + '%'; }, 300);
+        try {
+            const response = await fetch('/api/upload', { method: 'POST', body: formData });
+            const result = await response.json();
+            clearInterval(progressInterval); document.getElementById('progressBar').style.width = '100%';
+            setTimeout(() => {
+                uploadProgress.style.display = 'none';
+                if (result.success) { showResult('Receipt analyzed! Data extracted and filled below.', 'success'); fillForm(result.data); }
+                else { showResult(result.message || 'Failed to process image', 'error'); }
+                isUploading = false;
+            }, 500);
+        } catch (error) { clearInterval(progressInterval); uploadProgress.style.display = 'none'; showResult('Error: ' + error.message, 'error'); isUploading = false; }
+    }
+
+    function fillForm(data) {
+        // Always update fields if data exists, even if empty string
+        document.getElementById('name').value = data.name || '';
+        document.getElementById('amount').value = data.amount || '';
+        document.getElementById('payment_type').value = data.payment_type || 'debit';
+        document.getElementById('payee_type').value = data.payee_type || 'Other';
+        document.getElementById('date').value = data.date || new Date().toISOString().split('T')[0];
+        
+        if (data.time) {
+            // Convert 24-hour time to 12-hour format
+            const [hours24, minutes] = data.time.split(':');
+            let hours = parseInt(hours24);
+            const ampm = hours >= 12 ? 'PM' : 'AM';
+            hours = hours % 12 || 12;
+            document.getElementById('timeHour').value = hours;
+            document.getElementById('timeMinute').value = minutes;
+            document.getElementById('timeAmPm').value = ampm;
+            updateHiddenTime();
+        }
+    }
+    function showResult(message, type) { uploadResult.innerHTML = `<div class="${type}-message"><i class="fas fa-${type==='success'?'circle-check':'circle-exclamation'}"></i>${message}</div>`; uploadResult.style.display = 'block'; }
+    function resetForm() { 
+        transactionForm.reset(); 
+        document.getElementById('date').value = new Date().toISOString().split('T')[0]; 
+        const now = new Date();
+        let hours = now.getHours();
+        const minutes = now.getMinutes();
+        const ampm = hours >= 12 ? 'PM' : 'AM';
+        hours = hours % 12 || 12;
+        document.getElementById('timeHour').value = hours;
+        document.getElementById('timeMinute').value = minutes.toString().padStart(2, '0');
+        document.getElementById('timeAmPm').value = ampm;
+        updateHiddenTime();
+        uploadResult.style.display='none'; 
+        document.getElementById('imagePreview').style.display='none'; 
+    }
+
+    transactionForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const saveBtn = document.getElementById('saveBtn'); const originalText = saveBtn.innerHTML;
+        saveBtn.disabled = true; saveBtn.innerHTML = '<span class="spin"></span> Saving...';
+        try {
+            const formData = { name:document.getElementById('name').value, amount:document.getElementById('amount').value, payment_type:document.getElementById('payment_type').value, payee_type:document.getElementById('payee_type').value, date:document.getElementById('date').value, time:document.getElementById('time').value };
+            const response = await fetch('/api/save-transaction', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(formData) });
+            const result = await response.json();
+            if (result.success) { showResult('Transaction saved!','success'); if(window.FinAnalyzer) window.FinAnalyzer.showNotification('Transaction saved successfully!','success'); setTimeout(()=>{window.location.href='/dashboard';},1200); }
+            else { showResult(result.message||'Failed to save','error'); }
+        } catch(error) { showResult('Error: '+error.message,'error'); }
+        finally { saveBtn.disabled=false; saveBtn.innerHTML=originalText; }
+    });
+</script>
+{% endblock %}

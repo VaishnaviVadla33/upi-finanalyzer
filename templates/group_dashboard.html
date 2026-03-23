@@ -1,0 +1,657 @@
+{% extends "base.html" %}
+{% block title %}Group Dashboard - FinAnalyzer{% endblock %}
+{% block page_title %}Group Dashboard{% endblock %}
+
+{% block content %}
+<div id="noGroupsView" style="display:none;text-align:center;padding:var(--space-12)">
+    <div style="max-width:500px;margin:0 auto">
+        <i class="fas fa-users" style="font-size:4rem;color:var(--text-muted);opacity:.3;margin-bottom:var(--space-6)"></i>
+        <h2 style="margin-bottom:var(--space-4)">No Groups Yet</h2>
+        <p style="color:var(--text-muted);margin-bottom:var(--space-6)">Create or join a group to start tracking shared expenses and view analytics.</p>
+        <a href="/groups" class="btn btn-primary"><i class="fas fa-plus"></i> Go to Groups</a>
+    </div>
+</div>
+
+<div id="dashboardView" style="display:none">
+    <!-- Group Selector -->
+    <div class="card" style="margin-bottom:var(--space-6);animation:fadeUp .6s var(--ease) both">
+        <div class="card-header">
+            <h3 class="card-title"><i class="fas fa-layer-group" style="color:var(--accent-light);margin-right:8px"></i>Select Group</h3>
+            <button class="btn btn-sm" onclick="loadGroups()" title="Refresh"><i class="fas fa-rotate"></i></button>
+        </div>
+        <div id="groupSelector" style="display:flex;gap:12px;flex-wrap:wrap;padding:var(--space-4)">
+            <div class="spin" style="margin:0 auto"></div>
+        </div>
+    </div>
+
+    <!-- Analytics Content -->
+    <div id="analyticsContent" style="display:none">
+        <!-- Overview Cards -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:var(--space-5);margin-bottom:var(--space-6)">
+            <div class="card" style="animation:fadeUp .6s var(--ease) .05s both">
+                <div style="display:flex;align-items:center;gap:12px">
+                    <div style="width:48px;height:48px;border-radius:var(--radius-xl);background:rgba(239,68,68,.15);display:flex;align-items:center;justify-content:center">
+                        <i class="fas fa-arrow-down" style="color:#ef4444;font-size:20px"></i>
+                    </div>
+                    <div style="flex:1">
+                        <p style="font-size:var(--fs-sm);color:var(--text-muted);margin-bottom:4px">Total Spending</p>
+                        <h3 id="totalSpending" style="font-size:24px">₹0</h3>
+                    </div>
+                </div>
+            </div>
+            <div class="card" style="animation:fadeUp .6s var(--ease) .1s both">
+                <div style="display:flex;align-items:center;gap:12px">
+                    <div style="width:48px;height:48px;border-radius:var(--radius-xl);background:rgba(16,185,129,.15);display:flex;align-items:center;justify-content:center">
+                        <i class="fas fa-arrow-up" style="color:#10b981;font-size:20px"></i>
+                    </div>
+                    <div style="flex:1">
+                        <p style="font-size:var(--fs-sm);color:var(--text-muted);margin-bottom:4px">Total Income</p>
+                        <h3 id="totalIncome" style="font-size:24px">₹0</h3>
+                    </div>
+                </div>
+            </div>
+            <div class="card" style="animation:fadeUp .6s var(--ease) .15s both">
+                <div style="display:flex;align-items:center;gap:12px">
+                    <div style="width:48px;height:48px;border-radius:var(--radius-xl);background:rgba(99,102,241,.15);display:flex;align-items:center;justify-content:center">
+                        <i class="fas fa-wallet" style="color:var(--accent-light);font-size:20px"></i>
+                    </div>
+                    <div style="flex:1">
+                        <p style="font-size:var(--fs-sm);color:var(--text-muted);margin-bottom:4px">Net Balance</p>
+                        <h3 id="netBalance" style="font-size:24px">₹0</h3>
+                    </div>
+                </div>
+            </div>
+            <div class="card" style="animation:fadeUp .6s var(--ease) .2s both">
+                <div style="display:flex;align-items:center;gap:12px">
+                    <div style="width:48px;height:48px;border-radius:var(--radius-xl);background:rgba(245,158,11,.15);display:flex;align-items:center;justify-content:center">
+                        <i class="fas fa-receipt" style="color:#f59e0b;font-size:20px"></i>
+                    </div>
+                    <div style="flex:1">
+                        <p style="font-size:var(--fs-sm);color:var(--text-muted);margin-bottom:4px">Transactions</p>
+                        <h3 id="transactionCount" style="font-size:24px">0</h3>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts Row -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-6);margin-bottom:var(--space-6)">
+            <!-- Monthly Trends -->
+            <div class="card" style="animation:fadeUp .6s var(--ease) .25s both">
+                <div class="card-header">
+                    <h3 class="card-title">Monthly Spending Trends</h3>
+                </div>
+                <canvas id="monthlyTrendsChart" style="max-height:300px"></canvas>
+            </div>
+
+            <!-- Category Breakdown -->
+            <div class="card" style="animation:fadeUp .6s var(--ease) .3s both">
+                <div class="card-header">
+                    <h3 class="card-title">Spending by Category</h3>
+                </div>
+                <canvas id="categoryChart" style="max-height:300px"></canvas>
+            </div>
+        </div>
+
+        <!-- Top Spenders & Categories -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-6);margin-bottom:var(--space-6)">
+            <!-- Top Spenders -->
+            <div class="card" style="animation:fadeUp .6s var(--ease) .35s both">
+                <div class="card-header">
+                    <h3 class="card-title">Top Spenders</h3>
+                </div>
+                <div id="topSpendersList"></div>
+            </div>
+
+            <!-- Top Categories -->
+            <div class="card" style="animation:fadeUp .6s var(--ease) .4s both">
+                <div class="card-header">
+                    <h3 class="card-title">Most Expensive Categories</h3>
+                </div>
+                <div id="topCategoriesList"></div>
+            </div>
+        </div>
+
+        <!-- Member Contributions -->
+        <div class="card" style="animation:fadeUp .6s var(--ease) .45s both;margin-bottom:var(--space-6)">
+            <div class="card-header">
+                <h3 class="card-title">Member Contributions</h3>
+            </div>
+            <div id="memberContributions"></div>
+        </div>
+
+        <!-- Group Balance Overview & Activity Feed -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-6);margin-bottom:var(--space-6)">
+            <!-- Balance Overview (Who Owes What) -->
+            <div class="card" style="animation:fadeUp .6s var(--ease) .5s both">
+                <div class="card-header">
+                    <h3 class="card-title"><i class="fas fa-scale-balanced" style="color:var(--accent-light);margin-right:8px"></i>Balance Overview</h3>
+                </div>
+                <div id="balanceOverview"></div>
+            </div>
+
+            <!-- Recent Activity Feed -->
+            <div class="card" style="animation:fadeUp .6s var(--ease) .55s both">
+                <div class="card-header">
+                    <h3 class="card-title"><i class="fas fa-clock-rotate-left" style="color:var(--success);margin-right:8px"></i>Recent Activity</h3>
+                </div>
+                <div id="activityFeed" style="max-height:400px;overflow-y:auto"></div>
+            </div>
+        </div>
+
+        <!-- Reports & Export Section -->
+        <div class="card" style="animation:fadeUp .6s var(--ease) .6s both">
+            <div class="card-header">
+                <h3 class="card-title"><i class="fas fa-file-export" style="color:var(--warning);margin-right:8px"></i>Reports & Export</h3>
+            </div>
+            <div style="padding:var(--space-5)">
+                <!-- Date Range Filter -->
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:var(--space-4);margin-bottom:var(--space-5);padding:16px;background:rgba(99,102,241,.08);border-radius:var(--radius-xl)">
+                    <div>
+                        <label style="font-size:var(--fs-sm);color:var(--text-muted);margin-bottom:6px;display:block">From Date</label>
+                        <input type="date" id="dateFrom" class="form-input" style="font-size:var(--fs-sm)">
+                    </div>
+                    <div>
+                        <label style="font-size:var(--fs-sm);color:var(--text-muted);margin-bottom:6px;display:block">To Date</label>
+                        <input type="date" id="dateTo" class="form-input" style="font-size:var(--fs-sm)">
+                    </div>
+                    <div>
+                        <label style="font-size:var(--fs-sm);color:var(--text-muted);margin-bottom:6px;display:block">Quick Select</label>
+                        <select id="quickDate" class="form-input" style="font-size:var(--fs-sm)" onchange="applyQuickDate()">
+                            <option value="">Custom</option>
+                            <option value="7">Last 7 days</option>
+                            <option value="30">Last 30 days</option>
+                            <option value="90">Last 3 months</option>
+                            <option value="365">Last year</option>
+                        </select>
+                    </div>
+                    <div style="display:flex;align-items:flex-end">
+                        <button class="btn btn-primary" onclick="applyDateFilter()"><i class="fas fa-filter"></i> Apply</button>
+                    </div>
+                </div>
+
+                <!-- Export Buttons -->
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:var(--space-4)">
+                    <button class="btn btn-outline" onclick="exportCSV()">
+                        <i class="fas fa-file-csv"></i> Export CSV
+                    </button>
+                    <button class="btn btn-outline" onclick="exportPDF()">
+                        <i class="fas fa-file-pdf"></i> Export PDF
+                    </button>
+                    <button class="btn btn-outline" onclick="generateMonthlyReport()">
+                        <i class="fas fa-calendar-alt"></i> Monthly Report
+                    </button>
+                    <button class="btn btn-outline" onclick="generateYearEndReport()">
+                        <i class="fas fa-calendar-check"></i> Year-End Summary
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.group-selector-card{padding:16px;border-radius:var(--radius-xl);border:2px solid transparent;cursor:pointer;transition:var(--transition);background:rgba(255,255,255,.03);min-width:200px}
+.group-selector-card:hover{background:rgba(255,255,255,.05);transform:translateY(-2px)}
+.group-selector-card.active{border-color:var(--accent);background:rgba(99,102,241,.1)}
+.stat-bar{height:8px;border-radius:var(--radius-md);background:var(--accent);transition:width .6s var(--ease)}
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+let currentGroupId = null;
+let monthlyChart = null;
+let categoryChart = null;
+
+// Load groups
+async function loadGroups() {
+    try {
+        const response = await fetch('/api/group-analytics/summary');
+        const result = await response.json();
+        
+        if (!result.success || !result.groups || result.groups.length === 0) {
+            document.getElementById('noGroupsView').style.display = 'block';
+            document.getElementById('dashboardView').style.display = 'none';
+            return;
+        }
+        
+        document.getElementById('noGroupsView').style.display = 'none';
+        document.getElementById('dashboardView').style.display = 'block';
+        
+        const container = document.getElementById('groupSelector');
+        container.innerHTML = result.groups.map(group => `
+            <div class="group-selector-card ${currentGroupId === group.id ? 'active' : ''}" onclick="selectGroup('${group.id}')">
+                <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+                    <div style="width:40px;height:40px;border-radius:var(--radius-lg);background:${group.color || '#6366f1'};display:flex;align-items:center;justify-content:center;color:#fff;font-weight:600">
+                        ${group.name.charAt(0).toUpperCase()}
+                    </div>
+                    <div style="flex:1">
+                        <div style="font-weight:500;margin-bottom:2px">${group.name}</div>
+                        <div style="font-size:var(--fs-xs);color:var(--text-muted)">${group.member_count} members</div>
+                    </div>
+                </div>
+                <div style="font-size:var(--fs-sm);color:var(--text-muted)">
+                    <div>₹${group.total_spending.toLocaleString()} spent</div>
+                    <div>${group.transaction_count} transactions</div>
+                </div>
+            </div>
+        `).join('');
+        
+        // Auto-select first group
+        if (!currentGroupId && result.groups.length > 0) {
+            selectGroup(result.groups[0].id);
+        }
+    } catch (error) {
+        console.error('Error loading groups:', error);
+    }
+}
+
+// Select group
+async function selectGroup(groupId) {
+    currentGroupId = groupId;
+    loadGroups(); // Refresh to show active state
+    loadAnalytics(groupId);
+}
+
+// Load analytics
+async function loadAnalytics(groupId) {
+    try {
+        const response = await fetch(`/api/group-analytics/${groupId}`);
+        const result = await response.json();
+        
+        if (!result.success) {
+            if (window.FinAnalyzer) window.FinAnalyzer.showNotification(result.message, 'error');
+            return;
+        }
+        
+        const analytics = result.analytics;
+        
+        // Update overview cards
+        document.getElementById('totalSpending').textContent = `₹${analytics.total_spending.toLocaleString()}`;
+        document.getElementById('totalIncome').textContent = `₹${analytics.total_income.toLocaleString()}`;
+        document.getElementById('netBalance').textContent = `₹${analytics.net_balance.toLocaleString()}`;
+        document.getElementById('transactionCount').textContent = analytics.transaction_count;
+        
+        // Update charts
+        updateMonthlyChart(analytics.monthly_spending);
+        updateCategoryChart(analytics.category_spending);
+        
+        // Update top spenders
+        updateTopSpenders(analytics.top_spenders);
+        
+        // Update top categories
+        updateTopCategories(analytics.top_categories);
+        
+        // Update member contributions
+        updateMemberContributions(analytics.member_spending);
+        
+        // Update balance overview
+        updateBalanceOverview(analytics.member_spending);
+        
+        // Update activity feed
+        updateActivityFeed(result.transactions);
+        
+        document.getElementById('analyticsContent').style.display = 'block';
+    } catch (error) {
+        console.error('Error loading analytics:', error);
+    }
+}
+
+// Update monthly trends chart
+function updateMonthlyChart(monthlyData) {
+    const ctx = document.getElementById('monthlyTrendsChart');
+    
+    if (monthlyChart) {
+        monthlyChart.destroy();
+    }
+    
+    const months = Object.keys(monthlyData).sort();
+    const values = months.map(m => monthlyData[m]);
+    
+    monthlyChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: months.map(m => {
+                const [year, month] = m.split('-');
+                return new Date(year, month - 1).toLocaleDateString('en-US', {month: 'short', year: 'numeric'});
+            }),
+            datasets: [{
+                label: 'Spending',
+                data: values,
+                borderColor: '#6366f1',
+                backgroundColor: 'rgba(99,102,241,.1)',
+                tension: 0.4,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: {display: false}
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: value => '₹' + value.toLocaleString()
+                    }
+                }
+            }
+        }
+    });
+}
+
+// Update category chart
+function updateCategoryChart(categoryData) {
+    const ctx = document.getElementById('categoryChart');
+    
+    if (categoryChart) {
+        categoryChart.destroy();
+    }
+    
+    const categories = Object.keys(categoryData);
+    const values = Object.values(categoryData);
+    
+    const colors = ['#6366f1', '#ec4899', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444', '#06b6d4', '#84cc16'];
+    
+    categoryChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: categories,
+            datasets: [{
+                data: values,
+                backgroundColor: colors.slice(0, categories.length)
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
+            }
+        }
+    });
+}
+
+// Update top spenders
+function updateTopSpenders(spenders) {
+    const container = document.getElementById('topSpendersList');
+    
+    if (spenders.length === 0) {
+        container.innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:var(--space-6)">No data</p>';
+        return;
+    }
+    
+    const maxAmount = Math.max(...spenders.map(s => s.amount));
+    
+    container.innerHTML = spenders.map((spender, index) => `
+        <div style="padding:12px;border-bottom:1px solid var(--border)">
+            <div style="display:flex;justify-content:space-between;margin-bottom:8px">
+                <div style="display:flex;align-items:center;gap:8px">
+                    <span style="font-weight:600;color:var(--text-muted)">#${index + 1}</span>
+                    <span>${spender.email}</span>
+                </div>
+                <span style="font-weight:600">₹${spender.amount.toLocaleString()}</span>
+            </div>
+            <div style="background:rgba(255,255,255,.05);border-radius:var(--radius-md);height:6px;overflow:hidden">
+                <div class="stat-bar" style="width:${(spender.amount / maxAmount * 100)}%"></div>
+            </div>
+            <div style="font-size:var(--fs-xs);color:var(--text-muted);margin-top:4px">${spender.count} transactions</div>
+        </div>
+    `).join('');
+}
+
+// Update top categories
+function updateTopCategories(categories) {
+    const container = document.getElementById('topCategoriesList');
+    
+    if (categories.length === 0) {
+        container.innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:var(--space-6)">No data</p>';
+        return;
+    }
+    
+    const maxAmount = Math.max(...categories.map(c => c.amount));
+    
+    container.innerHTML = categories.map((cat, index) => `
+        <div style="padding:12px;border-bottom:1px solid var(--border)">
+            <div style="display:flex;justify-content:space-between;margin-bottom:8px">
+                <div style="display:flex;align-items:center;gap:8px">
+                    <span style="font-weight:600;color:var(--text-muted)">#${index + 1}</span>
+                    <span>${cat.category}</span>
+                </div>
+                <span style="font-weight:600">₹${cat.amount.toLocaleString()}</span>
+            </div>
+            <div style="background:rgba(255,255,255,.05);border-radius:var(--radius-md);height:6px;overflow:hidden">
+                <div class="stat-bar" style="width:${(cat.amount / maxAmount * 100)}%;background:#ec4899"></div>
+            </div>
+        </div>
+    `).join('');
+}
+
+// Update member contributions
+function updateMemberContributions(memberData) {
+    const container = document.getElementById('memberContributions');
+    
+    const members = Object.entries(memberData).map(([email, data]) => ({
+        email,
+        ...data,
+        total: data.debit + data.credit
+    })).sort((a, b) => b.debit - a.debit);
+    
+    if (members.length === 0) {
+        container.innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:var(--space-6)">No data</p>';
+        return;
+    }
+    
+    container.innerHTML = `
+        <div style="overflow-x:auto">
+            <table style="width:100%;border-collapse:collapse">
+                <thead>
+                    <tr style="border-bottom:2px solid var(--border)">
+                        <th style="text-align:left;padding:12px;font-weight:600">Member</th>
+                        <th style="text-align:right;padding:12px;font-weight:600">Spent</th>
+                        <th style="text-align:right;padding:12px;font-weight:600">Received</th>
+                        <th style="text-align:right;padding:12px;font-weight:600">Transactions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${members.map(member => `
+                        <tr style="border-bottom:1px solid var(--border)">
+                            <td style="padding:12px">${member.email}</td>
+                            <td style="padding:12px;text-align:right;color:#ef4444">₹${member.debit.toLocaleString()}</td>
+                            <td style="padding:12px;text-align:right;color:#10b981">₹${member.credit.toLocaleString()}</td>
+                            <td style="padding:12px;text-align:right">${member.count}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        </div>
+    `;
+}
+
+// Update balance overview (who owes what)
+function updateBalanceOverview(memberData) {
+    const container = document.getElementById('balanceOverview');
+    
+    // Calculate average spending per member
+    const members = Object.entries(memberData);
+    if (members.length === 0) {
+        container.innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:var(--space-6)">No data</p>';
+        return;
+    }
+    
+    const totalSpent = members.reduce((sum, [_, data]) => sum + data.debit, 0);
+    const avgSpending = totalSpent / members.length;
+    
+    // Calculate who owes what
+    const balances = members.map(([email, data]) => ({
+        email,
+        balance: data.debit - avgSpending,
+        spent: data.debit
+    })).sort((a, b) => a.balance - b.balance);
+    
+    container.innerHTML = `
+        <div style="padding:var(--space-4)">
+            <div style="padding:12px;background:rgba(99,102,241,.08);border-radius:var(--radius-lg);margin-bottom:var(--space-4);text-align:center">
+                <div style="font-size:var(--fs-sm);color:var(--text-muted);margin-bottom:4px">Average per member</div>
+                <div style="font-size:var(--fs-xl);font-weight:600">₹${avgSpending.toLocaleString(undefined, {maximumFractionDigits: 0})}</div>
+            </div>
+            ${balances.map(member => {
+                const isOwed = member.balance > 0;
+                const amount = Math.abs(member.balance);
+                return `
+                    <div style="padding:12px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+                        <div>
+                            <div style="font-weight:500;margin-bottom:2px">${member.email}</div>
+                            <div style="font-size:var(--fs-xs);color:var(--text-muted)">Spent: ₹${member.spent.toLocaleString()}</div>
+                        </div>
+                        <div style="text-align:right">
+                            <div style="font-weight:600;color:${isOwed ? '#10b981' : '#ef4444'}">
+                                ${isOwed ? '+' : '-'}₹${amount.toLocaleString(undefined, {maximumFractionDigits: 0})}
+                            </div>
+                            <div style="font-size:var(--fs-xs);color:var(--text-muted)">
+                                ${isOwed ? 'Should receive' : 'Should pay'}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('')}
+        </div>
+    `;
+}
+
+// Update activity feed
+function updateActivityFeed(transactions) {
+    const container = document.getElementById('activityFeed');
+    
+    if (!transactions || transactions.length === 0) {
+        container.innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:var(--space-6)">No recent activity</p>';
+        return;
+    }
+    
+    // Sort by date (most recent first) and take last 10
+    const recentTransactions = transactions
+        .sort((a, b) => {
+            const dateA = new Date(a.date + ' ' + (a.time || '00:00'));
+            const dateB = new Date(b.date + ' ' + (b.time || '00:00'));
+            return dateB - dateA;
+        })
+        .slice(0, 10);
+    
+    container.innerHTML = recentTransactions.map(t => {
+        const isCredit = t.payment_type === 'credit';
+        const icon = isCredit ? 'arrow-up' : 'arrow-down';
+        const color = isCredit ? '#10b981' : '#ef4444';
+        
+        return `
+            <div style="padding:12px;border-bottom:1px solid var(--border);display:flex;gap:12px;align-items:center">
+                <div style="width:36px;height:36px;border-radius:50%;background:rgba(${isCredit ? '16,185,129' : '239,68,68'},.15);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                    <i class="fas fa-${icon}" style="color:${color};font-size:14px"></i>
+                </div>
+                <div style="flex:1;min-width:0">
+                    <div style="font-weight:500;margin-bottom:2px">${t.name || 'Unknown'}</div>
+                    <div style="font-size:var(--fs-xs);color:var(--text-muted)">
+                        ${t.submitted_by || 'Unknown'} • ${t.date} ${t.time || ''}
+                    </div>
+                </div>
+                <div style="font-weight:600;color:${color};white-space:nowrap">
+                    ${isCredit ? '+' : '-'}₹${parseFloat(t.amount || 0).toLocaleString()}
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+// Apply quick date filter
+function applyQuickDate() {
+    const days = parseInt(document.getElementById('quickDate').value);
+    if (!days) return;
+    
+    const today = new Date();
+    const fromDate = new Date(today);
+    fromDate.setDate(today.getDate() - days);
+    
+    document.getElementById('dateFrom').value = fromDate.toISOString().split('T')[0];
+    document.getElementById('dateTo').value = today.toISOString().split('T')[0];
+}
+
+// Apply date filter
+function applyDateFilter() {
+    if (!currentGroupId) return;
+    loadAnalytics(currentGroupId);
+    if (window.FinAnalyzer) window.FinAnalyzer.showNotification('Filter applied', 'success');
+}
+
+// Export to CSV
+function exportCSV() {
+    if (!currentGroupId) return;
+    
+    fetch(`/api/group-analytics/${currentGroupId}`)
+        .then(res => res.json())
+        .then(result => {
+            if (!result.success) return;
+            
+            const transactions = result.transactions;
+            let csv = 'Date,Time,Name,Type,Category,Amount,Submitted By\n';
+            
+            transactions.forEach(t => {
+                csv += `${t.date},${t.time || ''},${t.name || ''},${t.payment_type},${t.payee_type || ''},${t.amount},${t.submitted_by}\n`;
+            });
+            
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `group-transactions-${currentGroupId}-${new Date().toISOString().split('T')[0]}.csv`;
+            a.click();
+            
+            if (window.FinAnalyzer) window.FinAnalyzer.showNotification('CSV exported successfully', 'success');
+        });
+}
+
+// Export to PDF
+function exportPDF() {
+    if (!currentGroupId) return;
+    
+    if (window.FinAnalyzer) window.FinAnalyzer.showNotification('PDF export feature coming soon', 'info');
+}
+
+// Generate monthly report
+function generateMonthlyReport() {
+    if (!currentGroupId) return;
+    
+    const today = new Date();
+    const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+    const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+    
+    document.getElementById('dateFrom').value = firstDay.toISOString().split('T')[0];
+    document.getElementById('dateTo').value = lastDay.toISOString().split('T')[0];
+    document.getElementById('quickDate').value = '';
+    
+    applyDateFilter();
+}
+
+// Generate year-end report
+function generateYearEndReport() {
+    if (!currentGroupId) return;
+    
+    const today = new Date();
+    const firstDay = new Date(today.getFullYear(), 0, 1);
+    const lastDay = new Date(today.getFullYear(), 11, 31);
+    
+    document.getElementById('dateFrom').value = firstDay.toISOString().split('T')[0];
+    document.getElementById('dateTo').value = lastDay.toISOString().split('T')[0];
+    document.getElementById('quickDate').value = '';
+    
+    applyDateFilter();
+}
+
+// Initialize
+loadGroups();
+</script>
+{% endblock %}

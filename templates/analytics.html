@@ -1,0 +1,281 @@
+{% extends "base.html" %}
+{% block title %}Analytics - FinAnalyzer{% endblock %}
+{% block page_title %}Analytics{% endblock %}
+
+{% block content %}
+<div style="display:flex;justify-content:flex-end;margin-bottom:var(--space-4)">
+    <div style="display:flex;align-items:center;gap:var(--space-3)">
+        <label style="color:var(--text-secondary);font-size:var(--fs-sm);font-weight:500">Filter by Year:</label>
+        <select id="globalYearFilter" class="form-input" style="width:auto;padding:8px 30px 8px 14px;font-size:var(--fs-sm)">
+            <option value="all">All Years</option>
+            <option value="2026" selected>2026</option>
+            <option value="2025">2025</option>
+            <option value="2024">2024</option>
+            <option value="2023">2023</option>
+        </select>
+    </div>
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-6)">
+    <!-- Left Panel -->
+    <div style="display:flex;flex-direction:column;gap:var(--space-6)">
+        <div class="card" style="animation:fadeUp .6s var(--ease) both">
+            <div class="card-header"><h3 class="card-title"><i class="fas fa-piggy-bank" style="color:var(--accent-light);margin-right:8px"></i>Savings Opportunities</h3></div>
+            <div id="savings-suggestions-list"><div class="skeleton" style="height:48px;margin-bottom:8px"></div><div class="skeleton" style="height:48px"></div></div>
+        </div>
+        <div class="card" style="animation:fadeUp .6s var(--ease) .1s both">
+            <div class="card-header"><h3 class="card-title"><i class="fas fa-triangle-exclamation" style="color:var(--warning);margin-right:8px"></i>Important Alerts</h3></div>
+            <div id="spending-alerts-list"><div class="skeleton" style="height:48px;margin-bottom:8px"></div><div class="skeleton" style="height:48px"></div></div>
+        </div>
+        <div class="card" style="animation:fadeUp .6s var(--ease) .2s both">
+            <div class="card-header"><h3 class="card-title"><i class="fas fa-clock" style="color:var(--info);margin-right:8px"></i>Peak Transaction Periods</h3></div>
+            <div class="chart-container" style="height:200px;max-height:200px"><canvas id="timeIntervalChart"></canvas></div>
+        </div>
+    </div>
+    <!-- Right Panel -->
+    <div style="display:flex;flex-direction:column;gap:var(--space-6)">
+        <div class="card" style="animation:fadeUp .6s var(--ease) .05s both">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:var(--space-4)">
+                <h3 class="card-title">Transaction History</h3>
+                <div style="display:flex;gap:4px;background:rgba(255,255,255,.05);padding:3px;border-radius:var(--radius-lg)">
+                    <button class="chart-tab active" data-chart="credit" onclick="toggleTransactionType('credit')">Credit</button>
+                    <button class="chart-tab" data-chart="debit" onclick="toggleTransactionType('debit')">Debit</button>
+                </div>
+            </div>
+            <div class="chart-container" style="height:250px;max-height:250px"><canvas id="combined-transactions-chart"></canvas></div>
+        </div>
+        <div class="card" style="animation:fadeUp .6s var(--ease) .15s both">
+            <div class="card-header">
+                <h3 class="card-title">Monthly Spending By Year</h3>
+            </div>
+            <div class="chart-container" style="height:250px;max-height:250px"><canvas id="monthlySpendingChart"></canvas></div>
+        </div>
+        <div class="card" style="animation:fadeUp .6s var(--ease) .25s both">
+            <div class="card-header"><h3 class="card-title"><i class="fas fa-arrows-rotate" style="color:var(--success);margin-right:8px"></i>Cash Flow Overview</h3></div>
+            <div class="chart-container" style="height:200px;max-height:200px"><canvas id="inflow-outflow-chart"></canvas></div>
+        </div>
+    </div>
+</div>
+
+<style>
+.chart-tab{padding:6px 14px;background:transparent;border:none;border-radius:var(--radius-md);color:var(--text-muted);font-size:var(--fs-sm);font-weight:500;cursor:pointer;transition:var(--transition);font-family:var(--ff)}
+.chart-tab.active{background:var(--accent);color:#fff}
+.chart-tab:hover:not(.active){color:var(--text-primary);background:rgba(255,255,255,.06)}
+.savings-item,.alert-item{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:rgba(255,255,255,.03);border-radius:var(--radius-xl);border-left:3px solid var(--accent);margin-bottom:8px;transition:var(--transition)}
+.savings-item:hover,.alert-item:hover{background:rgba(255,255,255,.05)}
+.item-info{flex:1}.item-title{font-weight:500;font-size:var(--fs-sm);margin-bottom:2px}.item-subtitle{font-size:var(--fs-xs);color:var(--text-muted)}
+.item-value{font-weight:600;color:var(--accent-light);font-size:var(--fs-sm)}
+@media(max-width:768px){div[style*="grid-template-columns: 1fr 1fr"]{grid-template-columns:1fr!important}}
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let cashFlowChart,monthlySpendingChart,timeIntervalChart,transactionChart;
+let allTransactions=[],filteredTransactions=[],currentTransactionType='credit';
+
+async function loadAnalyticsData(){
+    try{
+        const response=await fetch('/api/analytics-data');
+        if(!response.ok){showErrorState('Failed to load');return}
+        const result=await response.json();
+        if(result.success){
+            const data=result.data;
+            if(result.message&&result.message.includes('No transactions')){showNoDataState(result.message);return}
+            allTransactions=data.all_transactions||[];
+            applyYearFilter();
+        }else{showErrorState(result.message||'Failed')}
+        
+        // Load real user alerts
+        await loadRealAlerts();
+    }catch(e){showErrorState('Network error')}
+}
+
+async function loadRealAlerts(){
+    try{
+        const response=await fetch('/api/dashboard-alerts');
+        if(!response.ok) return;
+        const result=await response.json();
+        if(result.success){
+            const triggeredAlerts=result.triggered_alerts||[];
+            
+            // Remove duplicates by name+type+category+limit
+            const uniqueAlerts = [];
+            const seenKeys = new Set();
+            
+            for (const alert of triggeredAlerts) {
+                const key = `${alert.name}|${alert.type}|${alert.category}|${alert.limit}`;
+                if (!seenKeys.has(key)) {
+                    seenKeys.add(key);
+                    uniqueAlerts.push(alert);
+                }
+            }
+            
+            // Convert to analytics format
+            const alertsForDisplay=uniqueAlerts.map(alert=>({
+                title:alert.name,
+                message:`${alert.type.charAt(0).toUpperCase()+alert.type.slice(1)} spending: ₹${alert.current.toLocaleString()} of ₹${alert.limit.toLocaleString()} limit (${Math.round(alert.percentage)}%)`,
+                type:'warning'
+            }));
+            
+            updateImportantAlerts(alertsForDisplay);
+        }
+    }catch(e){
+        console.error('Failed to load alerts:',e);
+    }
+}
+
+function applyYearFilter(){
+    const year=document.getElementById('globalYearFilter').value;
+    if(year==='all'){
+        filteredTransactions=allTransactions;
+    }else{
+        filteredTransactions=allTransactions.filter(t=>{
+            const txYear=new Date(t.date).getFullYear();
+            return txYear===parseInt(year);
+        });
+    }
+    
+    // Recalculate analytics with filtered data
+    const creditTx=filteredTransactions.filter(t=>t.payment_type==='credit');
+    const debitTx=filteredTransactions.filter(t=>t.payment_type==='debit');
+    
+    const inflows=creditTx.reduce((sum,t)=>sum+(t.amount||0),0);
+    const outflows=debitTx.reduce((sum,t)=>sum+(t.amount||0),0);
+    
+    updateSavingsOpportunities(getSavingsSuggestions(debitTx));
+    // Alerts are loaded separately from real user settings - don't call getSpendingAlerts
+    updatePeakPeriods(getPeakTimes(filteredTransactions));
+    updateCashFlowChart({inflows,outflows});
+    updateMonthlySpendingChart(getMonthlySpending(filteredTransactions));
+    updateTransactionChart();
+}
+
+function getSavingsSuggestions(debitTx){
+    // Simple savings logic
+    const categoryTotals={};
+    debitTx.forEach(t=>{
+        const cat=t.payee_type||'Other';
+        categoryTotals[cat]=(categoryTotals[cat]||0)+t.amount;
+    });
+    return Object.entries(categoryTotals)
+        .filter(([_,amt])=>amt>1000)
+        .map(([cat,amt])=>({
+            title:`Optimize ${cat} Spending`,
+            message:`You spent ₹${amt.toLocaleString()} on ${cat}. Consider saving ₹${(amt*0.15).toLocaleString()} (15%)`,
+            amount:amt*0.15,
+            category:cat
+        }))
+        .slice(0,5);
+}
+
+function getSpendingAlerts(transactions){
+    // This function is deprecated - alerts are now managed through user settings
+    // Return empty array as alerts are shown in dashboard widget
+    return [];
+}
+
+function getPeakTimes(transactions){
+    const hourCounts=[];
+    const hourMap={};
+    
+    transactions.forEach(t=>{
+        // Parse the ISO string and extract the hour from the original time string
+        // The 'time' field contains the actual local time the user entered
+        const timeStr = t.time || '00:00';
+        const [hours, minutes] = timeStr.split(':').map(Number);
+        const hour = hours;
+        
+        if(!hourMap[hour]){
+            const h12=hour%12||12;
+            const ampm=hour<12?'AM':'PM';
+            const nextHour=(hour+1)%24;
+            const nextH12=nextHour%12||12;
+            const nextAmpm=nextHour<12?'AM':'PM';
+            
+            hourMap[hour]={
+                hour:hour,
+                time_interval:`${h12} ${ampm} - ${nextH12} ${nextAmpm}`,
+                transaction_count:0,
+                firstOccurrence:new Date(t.date)
+            };
+            hourCounts.push(hourMap[hour]);
+        }
+        hourMap[hour].transaction_count++;
+    });
+    
+    // Sort by count (descending), then by first occurrence (ascending) for ties
+    return hourCounts
+        .sort((a,b)=>{
+            if(b.transaction_count!==a.transaction_count){
+                return b.transaction_count-a.transaction_count;
+            }
+            return a.firstOccurrence-b.firstOccurrence;
+        })
+        .slice(0,3);
+}
+
+function getMonthlySpending(transactions){
+    const yearMonth={};
+    transactions.forEach(t=>{
+        const d=new Date(t.date);
+        const year=d.getFullYear();
+        const month=d.getMonth()+1;
+        if(!yearMonth[year])yearMonth[year]={};
+        yearMonth[year][month]=(yearMonth[year][month]||0)+t.amount;
+    });
+    return yearMonth;
+}
+
+function showNoDataState(msg){
+    const html=`<div style="text-align:center;padding:var(--space-8);color:var(--text-muted)"><i class="fas fa-chart-line" style="font-size:2rem;margin-bottom:12px;display:block;opacity:.4"></i><p style="margin-bottom:12px">${msg}</p><a href="/upload" class="btn btn-primary" style="font-size:var(--fs-sm)"><i class="fas fa-upload"></i> Upload Transactions</a></div>`;
+    document.getElementById('savings-suggestions-list').innerHTML=html;
+    document.getElementById('spending-alerts-list').innerHTML='<div style="text-align:center;padding:var(--space-6);color:var(--text-muted)"><p>Upload transactions to see alerts</p></div>';
+}
+function showErrorState(msg){document.querySelectorAll('.skeleton').forEach(el=>{el.outerHTML=`<div style="text-align:center;color:var(--danger);padding:var(--space-4)"><p>${msg}</p><button onclick="loadAnalyticsData()" class="btn btn-outline" style="margin-top:8px;font-size:var(--fs-sm)">Retry</button></div>`})}
+function updateSavingsOpportunities(s){
+    const c=document.getElementById('savings-suggestions-list');
+    if(!s||!s.length){c.innerHTML='<div style="text-align:center;color:var(--text-muted);padding:var(--space-6)"><p>No savings opportunities found</p></div>';return}
+    c.innerHTML=s.map(i=>`<div class="savings-item"><div class="item-info"><div class="item-title">${i.title}</div><div class="item-subtitle">${i.message}</div></div><div class="item-value">₹${i.amount?.toLocaleString()||'0'}</div></div>`).join('');
+}
+function updateImportantAlerts(a){
+    const c=document.getElementById('spending-alerts-list');
+    if(!a||!a.length){c.innerHTML='<div style="text-align:center;color:var(--text-muted);padding:var(--space-6)"><i class="fas fa-shield-check" style="display:block;font-size:1.5rem;margin-bottom:8px;opacity:.4"></i><p>Your spending looks healthy</p></div>';return}
+    c.innerHTML=a.map(i=>`<div class="alert-item" style="border-left-color:${i.type==='warning'?'var(--warning)':'var(--info)'}"><div class="item-info"><div class="item-title">${i.title}</div><div class="item-subtitle">${i.message}</div></div><i class="fas fa-${i.type==='warning'?'triangle-exclamation':'circle-info'}" style="color:${i.type==='warning'?'var(--warning)':'var(--info)'}"></i></div>`).join('');
+}
+function updatePeakPeriods(p){const ctx=document.getElementById('timeIntervalChart').getContext('2d');if(timeIntervalChart)timeIntervalChart.destroy();if(!p||!p.length)return;
+    timeIntervalChart=new Chart(ctx,{type:'bar',data:{labels:p.map(i=>i.time_interval),datasets:[{data:p.map(i=>i.transaction_count),backgroundColor:'rgba(99,102,241,0.6)',borderRadius:6,borderSkipped:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#64748b',maxRotation:45,font:{size:10}},grid:{display:false}},y:{ticks:{color:'#64748b'},grid:{color:'rgba(255,255,255,0.04)'}}}}})
+}
+function updateCashFlowChart(cf){const ctx=document.getElementById('inflow-outflow-chart').getContext('2d');if(cashFlowChart)cashFlowChart.destroy();
+    cashFlowChart=new Chart(ctx,{type:'bar',data:{labels:['Inflow','Outflow'],datasets:[{data:[cf?.inflows||0,cf?.outflows||0],backgroundColor:['rgba(16,185,129,0.7)','rgba(239,68,68,0.7)'],borderRadius:8,borderSkipped:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#64748b'},grid:{display:false}},y:{ticks:{color:'#64748b',callback:v=>'₹'+v.toLocaleString()},grid:{color:'rgba(255,255,255,0.04)'}}}}})
+}
+function updateMonthlySpendingChart(sd){const ctx=document.getElementById('monthlySpendingChart').getContext('2d');if(monthlySpendingChart)monthlySpendingChart.destroy();
+    const yr=document.getElementById('globalYearFilter').value;
+    if(yr==='all'){
+        // Show all years combined
+        const allMonths={};
+        Object.values(sd||{}).forEach(yearData=>{
+            Object.entries(yearData).forEach(([month,amount])=>{
+                allMonths[month]=(allMonths[month]||0)+amount;
+            });
+        });
+        const months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        const data=months.map((_,i)=>allMonths[i+1]||0);
+        monthlySpendingChart=new Chart(ctx,{type:'line',data:{labels:months,datasets:[{label:'Spending',data,borderColor:'#818cf8',backgroundColor:'rgba(99,102,241,0.08)',tension:.4,fill:true,borderWidth:2,pointRadius:0,pointHoverRadius:5}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#64748b',font:{size:10}},grid:{color:'rgba(255,255,255,0.04)'}},y:{ticks:{color:'#64748b',callback:v=>'₹'+v.toLocaleString()},grid:{color:'rgba(255,255,255,0.04)'}}}}});
+    }else{
+        const yd=sd?.[yr]||{},months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],data=months.map((_,i)=>yd[i+1]||0);
+        monthlySpendingChart=new Chart(ctx,{type:'line',data:{labels:months,datasets:[{label:'Spending',data,borderColor:'#818cf8',backgroundColor:'rgba(99,102,241,0.08)',tension:.4,fill:true,borderWidth:2,pointRadius:0,pointHoverRadius:5}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#64748b',font:{size:10}},grid:{color:'rgba(255,255,255,0.04)'}},y:{ticks:{color:'#64748b',callback:v=>'₹'+v.toLocaleString()},grid:{color:'rgba(255,255,255,0.04)'}}}}});
+    }
+}
+function updateTransactionChart(){const ctx=document.getElementById('combined-transactions-chart').getContext('2d');if(transactionChart)transactionChart.destroy();
+    let ft=filteredTransactions.filter(t=>t.payment_type===currentTransactionType);if(!ft.length)return;
+    // Sort by date and group by date
+    ft.sort((a,b)=>new Date(a.date)-new Date(b.date));
+    const gd={};ft.forEach(t=>{const d=new Date(t.date).toLocaleDateString('en-US',{month:'short',day:'numeric'});gd[d]=(gd[d]||0)+t.amount});
+    const labels=Object.keys(gd),data=labels.map(l=>gd[l]),color=currentTransactionType==='credit'?'#10b981':'#ef4444';
+    transactionChart=new Chart(ctx,{type:'line',data:{labels,datasets:[{label:currentTransactionType==='credit'?'Credit':'Debit',data,borderColor:color,backgroundColor:color+'20',tension:.4,fill:true,borderWidth:2,pointRadius:4,pointHoverRadius:6,pointBackgroundColor:color,pointBorderColor:'#fff',pointBorderWidth:2}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:'rgba(0,0,0,0.8)',padding:12,titleFont:{size:13},bodyFont:{size:12},callbacks:{label:ctx=>'₹'+ctx.parsed.y.toLocaleString()}}},scales:{x:{ticks:{color:'#64748b',maxRotation:45,font:{size:10}},grid:{display:false}},y:{ticks:{color:'#64748b',callback:v=>'₹'+v.toLocaleString()},grid:{color:'rgba(255,255,255,0.04)'}}}}})
+}
+function toggleTransactionType(t){currentTransactionType=t;document.querySelectorAll('.chart-tab').forEach(b=>b.classList.remove('active'));document.querySelector(`[data-chart="${t}"]`).classList.add('active');updateTransactionChart()}
+document.getElementById('globalYearFilter').addEventListener('change',()=>applyYearFilter());
+document.addEventListener('DOMContentLoaded',()=>loadAnalyticsData());
+</script>
+{% endblock %}

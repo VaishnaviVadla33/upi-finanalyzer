@@ -1,0 +1,741 @@
+{% extends "base.html" %}
+{% block title %}Groups - FinAnalyzer{% endblock %}
+{% block page_title %}Groups{% endblock %}
+
+{% block content %}
+<div style="display:grid;grid-template-columns:1fr 2fr;gap:var(--space-6)">
+    <!-- Left Sidebar -->
+    <div style="display:flex;flex-direction:column;gap:var(--space-6)">
+        <!-- Create Group Card -->
+        <div class="card" style="animation:fadeUp .6s var(--ease) both">
+            <div class="card-header">
+                <h3 class="card-title"><i class="fas fa-users-plus" style="color:var(--accent-light);margin-right:8px"></i>Create Group</h3>
+            </div>
+            <form id="createGroupForm">
+                <div class="form-group"><input type="text" id="groupName" class="form-input" placeholder="Group Name" required></div>
+                <div class="form-group"><textarea id="groupDescription" class="form-input" placeholder="Description (optional)" rows="2"></textarea></div>
+                <div class="form-group">
+                    <select id="groupType" class="form-input" required>
+                        <option value="Family">👨‍👩‍👧‍👦 Family</option>
+                        <option value="Friends">👥 Friends</option>
+                        <option value="Roommates">🏠 Roommates</option>
+                        <option value="Trip">✈️ Trip</option>
+                        <option value="Project">💼 Project</option>
+                        <option value="Other">📋 Other</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" style="font-size:var(--fs-sm);margin-bottom:8px">Group Color</label>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap">
+                        <input type="radio" name="groupColor" value="#6366f1" id="color1" checked style="display:none">
+                        <label for="color1" class="color-option" style="background:#6366f1"></label>
+                        <input type="radio" name="groupColor" value="#ec4899" id="color2" style="display:none">
+                        <label for="color2" class="color-option" style="background:#ec4899"></label>
+                        <input type="radio" name="groupColor" value="#10b981" id="color3" style="display:none">
+                        <label for="color3" class="color-option" style="background:#10b981"></label>
+                        <input type="radio" name="groupColor" value="#f59e0b" id="color4" style="display:none">
+                        <label for="color4" class="color-option" style="background:#f59e0b"></label>
+                        <input type="radio" name="groupColor" value="#8b5cf6" id="color5" style="display:none">
+                        <label for="color5" class="color-option" style="background:#8b5cf6"></label>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary" style="width:100%"><i class="fas fa-plus"></i> Create Group</button>
+            </form>
+        </div>
+
+        <!-- Join Group Card -->
+        <div class="card" style="animation:fadeUp .6s var(--ease) .1s both">
+            <div class="card-header">
+                <h3 class="card-title"><i class="fas fa-user-plus" style="color:var(--success);margin-right:8px"></i>Join Group</h3>
+            </div>
+            <form id="joinGroupForm">
+                <div class="form-group"><input type="text" id="inviteCode" class="form-input" placeholder="Enter Invite Code" required maxlength="6" style="text-transform:uppercase"></div>
+                <button type="submit" class="btn btn-outline" style="width:100%"><i class="fas fa-sign-in-alt"></i> Join Group</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Right Content Area -->
+    <div style="display:flex;flex-direction:column;gap:var(--space-6)">
+        <!-- My Groups List -->
+        <div class="card" style="animation:fadeUp .6s var(--ease) .05s both">
+            <div class="card-header">
+                <h3 class="card-title">My Groups</h3>
+                <div style="display:flex;gap:8px">
+                    <button class="btn btn-sm" onclick="loadGroups()" title="Refresh"><i class="fas fa-rotate"></i></button>
+                </div>
+            </div>
+            <div id="groupsList">
+                <div style="text-align:center;padding:var(--space-8);color:var(--text-muted)">
+                    <div class="spin" style="margin:0 auto 12px"></div>
+                    <p>Loading groups...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Group Details (Inline View) -->
+        <div id="groupDetailModal" style="display:none">
+            <div class="card" style="animation:fadeUp .6s var(--ease) .1s both">
+                <div class="card-header">
+                    <h3 id="modalGroupName" class="card-title">Group Details</h3>
+                    <button class="btn btn-sm" onclick="closeGroupDetail()"><i class="fas fa-times"></i></button>
+                </div>
+                <div class="card-body">
+                    <!-- Group Info -->
+                    <div style="display:flex;align-items:center;gap:16px;margin-bottom:var(--space-6);padding:16px;background:rgba(255,255,255,.03);border-radius:var(--radius-xl)">
+                        <div id="groupAvatar" style="width:64px;height:64px;border-radius:var(--radius-xl);display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:600;color:#fff"></div>
+                        <div style="flex:1">
+                            <h3 id="detailGroupName" style="margin-bottom:4px"></h3>
+                            <p id="detailGroupDesc" style="color:var(--text-muted);font-size:var(--fs-sm);margin-bottom:8px"></p>
+                            <div style="display:flex;gap:12px;font-size:var(--fs-sm)">
+                                <span id="detailGroupType" style="padding:4px 10px;background:rgba(99,102,241,.15);color:var(--accent-light);border-radius:var(--radius-md)"></span>
+                                <span id="detailGroupMembers" style="color:var(--text-muted)"></span>
+                            </div>
+                        </div>
+                        <button class="btn btn-sm btn-outline" onclick="showGroupSettings()" id="settingsBtn" style="display:none">
+                            <i class="fas fa-cog"></i> Settings
+                        </button>
+                    </div>
+
+                    <!-- Tabs -->
+                    <div style="display:flex;gap:4px;margin-bottom:var(--space-5);border-bottom:1px solid var(--border)">
+                        <button class="tab-btn active" onclick="switchTab('members')">Members</button>
+                        <button class="tab-btn" onclick="switchTab('invite')">Invite</button>
+                        <button class="tab-btn" onclick="switchTab('expenses')">Expenses</button>
+                    </div>
+
+                    <!-- Members Tab -->
+                    <div id="membersTab" class="tab-content">
+                        <div id="membersList"></div>
+                    </div>
+
+                    <!-- Invite Tab -->
+                    <div id="inviteTab" class="tab-content" style="display:none">
+                        <div style="display:grid;gap:var(--space-5)">
+                            <div style="padding:16px;background:rgba(99,102,241,.08);border-radius:var(--radius-xl);border:1px solid rgba(99,102,241,.2)">
+                                <label style="font-size:var(--fs-sm);color:var(--text-muted);margin-bottom:8px;display:block">Invite Code</label>
+                                <div style="display:flex;gap:8px">
+                                    <input type="text" id="inviteCodeDisplay" class="form-input" readonly style="font-size:20px;font-weight:600;letter-spacing:2px;text-align:center">
+                                    <button class="btn btn-primary" onclick="copyInviteCode()"><i class="fas fa-copy"></i></button>
+                                </div>
+                            </div>
+                            <div>
+                                <label style="font-size:var(--fs-sm);color:var(--text-muted);margin-bottom:8px;display:block">Invite via Email</label>
+                                <div style="display:flex;gap:8px">
+                                    <input type="email" id="inviteEmail" class="form-input" placeholder="friend@email.com" style="flex:1">
+                                    <button class="btn btn-outline" onclick="sendEmailInvite()">
+                                        <i class="fas fa-envelope"></i> Send
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Expenses Tab -->
+                    <div id="expensesTab" class="tab-content" style="display:none">
+                        <p style="text-align:center;color:var(--text-muted);padding:var(--space-8)">Group expenses feature coming soon...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Settings Modal -->
+        <div id="settingsModal" class="modal-overlay" style="display:none">
+            <div class="modal-dialog" style="max-width:700px">
+                <div class="modal-header">
+                    <h3><i class="fas fa-cog" style="color:var(--accent-light);margin-right:8px"></i>Group Settings</h3>
+                    <button class="modal-close" onclick="closeSettings()"><i class="fas fa-times"></i></button>
+                </div>
+                <div class="modal-body" style="max-height:70vh;overflow-y:auto">
+                    <form id="settingsForm">
+                        <!-- Basic Information Section -->
+                        <div style="margin-bottom:var(--space-6)">
+                            <h4 style="font-size:var(--fs-base);margin-bottom:var(--space-4);color:var(--accent-light);display:flex;align-items:center;gap:8px">
+                                <i class="fas fa-info-circle"></i> Basic Information
+                            </h4>
+                            <div style="display:grid;gap:var(--space-4)">
+                                <div class="form-group">
+                                    <label class="form-label">Group Name</label>
+                                    <input type="text" id="settingsName" class="form-input" placeholder="Enter group name" required>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Description</label>
+                                    <textarea id="settingsDescription" class="form-input" rows="3" placeholder="What's this group about?"></textarea>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Group Configuration Section -->
+                        <div style="margin-bottom:var(--space-6);padding-top:var(--space-6);border-top:1px solid var(--border)">
+                            <h4 style="font-size:var(--fs-base);margin-bottom:var(--space-4);color:var(--accent-light);display:flex;align-items:center;gap:8px">
+                                <i class="fas fa-sliders"></i> Configuration
+                            </h4>
+                            <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-4)">
+                                <div class="form-group">
+                                    <label class="form-label">Group Type</label>
+                                    <select id="settingsType" class="form-input">
+                                        <option value="Family">👨‍👩‍👧‍👦 Family</option>
+                                        <option value="Friends">👥 Friends</option>
+                                        <option value="Roommates">🏠 Roommates</option>
+                                        <option value="Trip">✈️ Trip</option>
+                                        <option value="Project">💼 Project</option>
+                                        <option value="Other">📋 Other</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Privacy</label>
+                                    <select id="settingsPrivacy" class="form-input">
+                                        <option value="private">🔒 Private</option>
+                                        <option value="public">🌐 Public</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Member Settings Section -->
+                        <div style="margin-bottom:var(--space-6);padding-top:var(--space-6);border-top:1px solid var(--border)">
+                            <h4 style="font-size:var(--fs-base);margin-bottom:var(--space-4);color:var(--accent-light);display:flex;align-items:center;gap:8px">
+                                <i class="fas fa-users"></i> Member Settings
+                            </h4>
+                            <div style="padding:16px;background:rgba(99,102,241,.08);border-radius:var(--radius-xl);border:1px solid rgba(99,102,241,.2)">
+                                <label style="display:flex;align-items:center;gap:12px;cursor:pointer">
+                                    <input type="checkbox" id="settingsAutoApprove" style="width:20px;height:20px;cursor:pointer">
+                                    <div>
+                                        <div style="font-weight:500;margin-bottom:2px">Auto-approve new members</div>
+                                        <div style="font-size:var(--fs-xs);color:var(--text-muted)">New members can join instantly without admin approval</div>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Invite Code Section -->
+                        <div style="margin-bottom:var(--space-6);padding-top:var(--space-6);border-top:1px solid var(--border)">
+                            <h4 style="font-size:var(--fs-base);margin-bottom:var(--space-4);color:var(--accent-light);display:flex;align-items:center;gap:8px">
+                                <i class="fas fa-key"></i> Invite Code
+                            </h4>
+                            <div style="padding:16px;background:rgba(16,185,129,.08);border-radius:var(--radius-xl);border:1px solid rgba(16,185,129,.2)">
+                                <p style="font-size:var(--fs-sm);color:var(--text-muted);margin-bottom:12px">Generate a new invite code if you think the current one has been compromised</p>
+                                <button type="button" class="btn btn-outline" onclick="regenerateInviteCode()" style="border-color:var(--success);color:var(--success)">
+                                    <i class="fas fa-rotate"></i> Regenerate Invite Code
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div style="display:flex;gap:var(--space-4);justify-content:flex-end">
+                            <button type="button" class="btn btn-outline" onclick="closeSettings()">Cancel</button>
+                            <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Save Changes</button>
+                        </div>
+
+                        <!-- Danger Zone Section -->
+                        <div style="margin-top:var(--space-8);padding-top:var(--space-6);border-top:2px solid var(--border)">
+                            <h4 style="font-size:var(--fs-base);margin-bottom:var(--space-3);color:var(--danger);display:flex;align-items:center;gap:8px">
+                                <i class="fas fa-exclamation-triangle"></i> Danger Zone
+                            </h4>
+                            <p style="font-size:var(--fs-sm);color:var(--text-muted);margin-bottom:var(--space-4)">These actions are irreversible. Please be careful.</p>
+                            <div style="display:grid;gap:var(--space-3)">
+                                <div style="padding:16px;background:rgba(245,158,11,.08);border-radius:var(--radius-xl);border:1px solid rgba(245,158,11,.2);display:flex;align-items:center;justify-content:space-between">
+                                    <div>
+                                        <div style="font-weight:500;margin-bottom:2px">Archive Group</div>
+                                        <div style="font-size:var(--fs-xs);color:var(--text-muted)">Hide this group from your list (can be restored)</div>
+                                    </div>
+                                    <button type="button" class="btn btn-sm btn-outline" onclick="archiveGroup()" style="border-color:var(--warning);color:var(--warning)">
+                                        <i class="fas fa-archive"></i> Archive
+                                    </button>
+                                </div>
+                                <div style="padding:16px;background:rgba(239,68,68,.08);border-radius:var(--radius-xl);border:1px solid rgba(239,68,68,.2);display:flex;align-items:center;justify-content:space-between">
+                                    <div>
+                                        <div style="font-weight:500;margin-bottom:2px">Delete Group</div>
+                                        <div style="font-size:var(--fs-xs);color:var(--text-muted)">Permanently delete this group and all its data</div>
+                                    </div>
+                                    <button type="button" class="btn btn-sm btn-outline" onclick="deleteGroup()" style="border-color:var(--danger);color:var(--danger)">
+                                        <i class="fas fa-trash"></i> Delete
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+/* Modal Overlay */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.75);backdrop-filter:blur(8px);z-index:9999;display:flex;align-items:center;justify-content:center;padding:var(--space-6);animation:fadeIn .3s var(--ease)}
+.modal-dialog{background:#1a1f2e;border:1px solid rgba(255,255,255,.15);border-radius:var(--radius-2xl);width:100%;box-shadow:var(--shadow-xl);animation:slideUp .3s var(--ease);max-height:90vh;display:flex;flex-direction:column}
+.modal-header{padding:var(--space-5) var(--space-6);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:rgba(255,255,255,.02)}
+.modal-header h3{font-size:var(--fs-xl);font-weight:600}
+.modal-close{background:transparent;border:none;color:var(--text-muted);cursor:pointer;width:32px;height:32px;border-radius:var(--radius-lg);display:flex;align-items:center;justify-content:center;transition:var(--transition)}
+.modal-close:hover{background:rgba(255,255,255,.1);color:var(--text-primary)}
+.modal-body{padding:var(--space-6);overflow-y:auto;background:#1a1f2e}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes slideUp{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}
+
+.color-option{width:36px;height:36px;border-radius:var(--radius-lg);cursor:pointer;border:3px solid transparent;transition:var(--transition);display:inline-block}
+.color-option:hover{transform:scale(1.1)}
+input[type="radio"]:checked + .color-option{border-color:#fff;box-shadow:0 0 0 2px var(--bg-primary),0 0 0 4px currentColor}
+.tab-btn{padding:10px 20px;background:transparent;border:none;border-bottom:2px solid transparent;color:var(--text-muted);cursor:pointer;transition:var(--transition);font-weight:500}
+.tab-btn.active{color:var(--accent-light);border-bottom-color:var(--accent)}
+.tab-btn:hover:not(.active){color:var(--text-primary)}
+.member-card{display:flex;align-items:center;gap:12px;padding:12px;background:rgba(255,255,255,.03);border-radius:var(--radius-xl);margin-bottom:8px;transition:var(--transition)}
+.member-card:hover{background:rgba(255,255,255,.05)}
+.member-avatar{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:600;color:#fff;font-size:14px}
+.role-badge{padding:4px 10px;border-radius:var(--radius-md);font-size:var(--fs-xs);font-weight:500}
+.role-admin{background:rgba(99,102,241,.15);color:var(--accent-light)}
+.role-member{background:rgba(16,185,129,.15);color:var(--success)}
+.role-viewer{background:rgba(148,163,184,.15);color:var(--text-muted)}
+.status-pending{opacity:.6}
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let currentGroupId = null;
+let currentGroupData = null;
+let userEmail = '{{ session.get("user_email", "") }}';
+
+// Load all groups
+async function loadGroups() {
+    try {
+        const response = await fetch('/api/groups');
+        const result = await response.json();
+        
+        const container = document.getElementById('groupsList');
+        
+        if (!result.success || !result.groups || result.groups.length === 0) {
+            container.innerHTML = '<div style="text-align:center;padding:var(--space-8);color:var(--text-muted)"><i class="fas fa-users" style="font-size:2rem;display:block;margin-bottom:12px;opacity:.4"></i><p>No groups yet. Create one above!</p></div>';
+            return;
+        }
+        
+        container.innerHTML = result.groups.map(group => {
+            const isAdmin = group.admin_email === userEmail;
+            const memberCount = group.members?.length || 0;
+            const color = group.color || '#6366f1';
+            
+            return `
+                <div class="member-card" onclick="viewGroup('${group.id}')" style="cursor:pointer">
+                    <div class="member-avatar" style="background:${color}">${group.name.charAt(0).toUpperCase()}</div>
+                    <div style="flex:1">
+                        <div style="font-weight:500;margin-bottom:2px">${group.name}</div>
+                        <div style="font-size:var(--fs-xs);color:var(--text-muted)">${memberCount} members • ${group.type || 'Other'}</div>
+                    </div>
+                    ${isAdmin ? '<span class="role-badge role-admin">Admin</span>' : ''}
+                    <i class="fas fa-chevron-right" style="color:var(--text-muted)"></i>
+                </div>
+            `;
+        }).join('');
+    } catch (error) {
+        document.getElementById('groupsList').innerHTML = '<div style="text-align:center;color:var(--danger);padding:var(--space-6)">Error loading groups</div>';
+    }
+}
+
+// View group details
+async function viewGroup(groupId) {
+    currentGroupId = groupId;
+    
+    try {
+        const response = await fetch(`/api/group/${groupId}`);
+        const result = await response.json();
+        
+        if (!result.success) {
+            if (window.FinAnalyzer) window.FinAnalyzer.showNotification(result.message, 'error');
+            return;
+        }
+        
+        currentGroupData = result.data;
+        const group = result.data;
+        const isAdmin = group.admin_email === userEmail;
+        
+        // Update modal
+        document.getElementById('modalGroupName').textContent = group.name;
+        document.getElementById('detailGroupName').textContent = group.name;
+        document.getElementById('detailGroupDesc').textContent = group.description || 'No description';
+        document.getElementById('detailGroupType').textContent = group.type || 'Other';
+        document.getElementById('detailGroupMembers').textContent = `${group.members?.length || 0} members`;
+        
+        const avatar = document.getElementById('groupAvatar');
+        avatar.style.background = group.color || '#6366f1';
+        avatar.textContent = group.name.charAt(0).toUpperCase();
+        
+        // Show settings button only for admin
+        document.getElementById('settingsBtn').style.display = isAdmin ? 'block' : 'none';
+        
+        // Load members
+        loadMembers(group);
+        
+        // Load invite info
+        loadInviteInfo(groupId);
+        
+        // Show inline (not modal)
+        document.getElementById('groupDetailModal').style.display = 'block';
+    } catch (error) {
+        if (window.FinAnalyzer) window.FinAnalyzer.showNotification('Error loading group', 'error');
+    }
+}
+
+function closeGroupDetail() {
+    document.getElementById('groupDetailModal').style.display = 'none';
+    currentGroupId = null;
+    currentGroupData = null;
+}
+
+// Load members
+function loadMembers(group) {
+    const container = document.getElementById('membersList');
+    const isAdmin = group.admin_email === userEmail;
+    
+    if (!group.members || group.members.length === 0) {
+        container.innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:var(--space-6)">No members</p>';
+        return;
+    }
+    
+    container.innerHTML = group.members.map(member => {
+        const isCurrentUser = member.email === userEmail;
+        const isPending = member.status === 'pending';
+        const avatarColor = stringToColor(member.email);
+        
+        return `
+            <div class="member-card ${isPending ? 'status-pending' : ''}">
+                <div class="member-avatar" style="background:${avatarColor}">${member.name.charAt(0).toUpperCase()}</div>
+                <div style="flex:1">
+                    <div style="font-weight:500">${member.name} ${isCurrentUser ? '(You)' : ''}</div>
+                    <div style="font-size:var(--fs-xs);color:var(--text-muted)">${member.email}</div>
+                </div>
+                <span class="role-badge role-${member.role}">${member.role}</span>
+                ${isPending ? '<span style="font-size:var(--fs-xs);color:var(--warning)">Pending</span>' : ''}
+                ${isAdmin && !isCurrentUser ? `
+                    <div style="display:flex;gap:4px">
+                        <button class="btn btn-sm" onclick="changeRole(event, '${member.email}')" title="Change Role"><i class="fas fa-user-tag"></i></button>
+                        <button class="btn btn-sm" onclick="removeMember(event, '${member.email}')" title="Remove" style="color:var(--danger)"><i class="fas fa-user-minus"></i></button>
+                    </div>
+                ` : ''}
+                ${!isAdmin && isCurrentUser && member.role !== 'admin' ? `
+                    <button class="btn btn-sm btn-outline" onclick="leaveGroup(event)" style="color:var(--danger)">Leave</button>
+                ` : ''}
+            </div>
+        `;
+    }).join('');
+}
+
+// Load invite info
+async function loadInviteInfo(groupId) {
+    try {
+        const response = await fetch(`/api/group/${groupId}/invite-link`);
+        const result = await response.json();
+        
+        if (result.success) {
+            document.getElementById('inviteCodeDisplay').value = result.invite_code;
+        }
+    } catch (error) {
+        console.error('Error loading invite info:', error);
+    }
+}
+
+// Switch tabs
+function switchTab(tab) {
+    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(content => content.style.display = 'none');
+    
+    event.target.classList.add('active');
+    document.getElementById(tab + 'Tab').style.display = 'block';
+}
+
+// Copy invite code
+function copyInviteCode() {
+    const code = document.getElementById('inviteCodeDisplay').value;
+    navigator.clipboard.writeText(code).then(() => {
+        if (window.FinAnalyzer) window.FinAnalyzer.showNotification('Invite code copied!', 'success');
+    });
+}
+
+// Send email invite
+async function sendEmailInvite() {
+    const email = document.getElementById('inviteEmail').value;
+    if (!email) {
+        if (window.FinAnalyzer) window.FinAnalyzer.showNotification('Please enter an email', 'error');
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/group/${currentGroupId}/invite-email`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({email})
+        });
+        const result = await response.json();
+        
+        if (result.success) {
+            if (window.FinAnalyzer) window.FinAnalyzer.showNotification(result.message, 'success');
+            document.getElementById('inviteEmail').value = '';
+        } else {
+            if (window.FinAnalyzer) window.FinAnalyzer.showNotification(result.message, 'error');
+        }
+    } catch (error) {
+        if (window.FinAnalyzer) window.FinAnalyzer.showNotification('Error sending invite', 'error');
+    }
+}
+
+// Remove member
+async function removeMember(event, memberEmail) {
+    event.stopPropagation();
+    
+    if (!confirm(`Remove ${memberEmail} from group?`)) return;
+    
+    try {
+        const response = await fetch(`/api/group/${currentGroupId}/member/${encodeURIComponent(memberEmail)}`, {
+            method: 'DELETE'
+        });
+        const result = await response.json();
+        
+        if (result.success) {
+            if (window.FinAnalyzer) window.FinAnalyzer.showNotification(result.message, 'success');
+            viewGroup(currentGroupId); // Reload
+        } else {
+            if (window.FinAnalyzer) window.FinAnalyzer.showNotification(result.message, 'error');
+        }
+    } catch (error) {
+        if (window.FinAnalyzer) window.FinAnalyzer.showNotification('Error removing member', 'error');
+    }
+}
+
+// Change role
+async function changeRole(event, memberEmail) {
+    event.stopPropagation();
+    
+    const role = prompt('Enter new role (admin/member/viewer):');
+    if (!role || !['admin', 'member', 'viewer'].includes(role.toLowerCase())) return;
+    
+    try {
+        const response = await fetch(`/api/group/${currentGroupId}/member/role`, {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({member_email: memberEmail, role: role.toLowerCase()})
+        });
+        const result = await response.json();
+        
+        if (result.success) {
+            if (window.FinAnalyzer) window.FinAnalyzer.showNotification(result.message, 'success');
+            viewGroup(currentGroupId); // Reload
+        } else {
+            if (window.FinAnalyzer) window.FinAnalyzer.showNotification(result.message, 'error');
+        }
+    } catch (error) {
+        if (window.FinAnalyzer) window.FinAnalyzer.showNotification('Error changing role', 'error');
+    }
+}
+
+// Leave group
+async function leaveGroup(event) {
+    event.stopPropagation();
+    
+    if (!confirm('Are you sure you want to leave this group?')) return;
+    
+    try {
+        const response = await fetch(`/api/group/${currentGroupId}/leave`, {method: 'POST'});
+        const result = await response.json();
+        
+        if (result.success) {
+            if (window.FinAnalyzer) window.FinAnalyzer.showNotification(result.message, 'success');
+            closeGroupDetail();
+            loadGroups();
+        } else {
+            if (window.FinAnalyzer) window.FinAnalyzer.showNotification(result.message, 'error');
+        }
+    } catch (error) {
+        if (window.FinAnalyzer) window.FinAnalyzer.showNotification('Error leaving group', 'error');
+    }
+}
+
+// Show settings
+function showGroupSettings() {
+    if (!currentGroupData) return;
+    
+    document.getElementById('settingsName').value = currentGroupData.name;
+    document.getElementById('settingsDescription').value = currentGroupData.description || '';
+    document.getElementById('settingsType').value = currentGroupData.type || 'Other';
+    document.getElementById('settingsPrivacy').value = currentGroupData.privacy || 'private';
+    document.getElementById('settingsAutoApprove').checked = currentGroupData.auto_approve || false;
+    
+    document.getElementById('settingsModal').style.display = 'flex';
+}
+
+function closeSettings() {
+    document.getElementById('settingsModal').style.display = 'none';
+}
+
+// Regenerate invite code
+async function regenerateInviteCode() {
+    if (!confirm('Generate new invite code? Old code will stop working.')) return;
+    
+    try {
+        const response = await fetch(`/api/group/${currentGroupId}/settings`, {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({regenerate_invite_code: true})
+        });
+        const result = await response.json();
+        
+        if (result.success) {
+            if (window.FinAnalyzer) window.FinAnalyzer.showNotification('New invite code generated', 'success');
+            loadInviteInfo(currentGroupId);
+        } else {
+            if (window.FinAnalyzer) window.FinAnalyzer.showNotification(result.message, 'error');
+        }
+    } catch (error) {
+        if (window.FinAnalyzer) window.FinAnalyzer.showNotification('Error generating code', 'error');
+    }
+}
+
+// Archive group
+async function archiveGroup() {
+    if (!confirm('Archive this group? You can unarchive it later.')) return;
+    
+    try {
+        const response = await fetch(`/api/group/${currentGroupId}/archive`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({archive: true})
+        });
+        const result = await response.json();
+        
+        if (result.success) {
+            if (window.FinAnalyzer) window.FinAnalyzer.showNotification(result.message, 'success');
+            closeSettings();
+            closeGroupDetail();
+            loadGroups();
+        } else {
+            if (window.FinAnalyzer) window.FinAnalyzer.showNotification(result.message, 'error');
+        }
+    } catch (error) {
+        if (window.FinAnalyzer) window.FinAnalyzer.showNotification('Error archiving group', 'error');
+    }
+}
+
+// Delete group
+async function deleteGroup() {
+    if (!confirm('⚠️ DELETE this group permanently? This cannot be undone!')) return;
+    if (!confirm('Are you absolutely sure? All group data will be lost!')) return;
+    
+    try {
+        const response = await fetch(`/api/group/${currentGroupId}/delete`, {method: 'DELETE'});
+        const result = await response.json();
+        
+        if (result.success) {
+            if (window.FinAnalyzer) window.FinAnalyzer.showNotification(result.message, 'success');
+            closeSettings();
+            closeGroupDetail();
+            loadGroups();
+        } else {
+            if (window.FinAnalyzer) window.FinAnalyzer.showNotification(result.message, 'error');
+        }
+    } catch (error) {
+        if (window.FinAnalyzer) window.FinAnalyzer.showNotification('Error deleting group', 'error');
+    }
+}
+
+// Helper: string to color
+function stringToColor(str) {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+        hash = str.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const colors = ['#6366f1', '#ec4899', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4', '#f43f5e'];
+    return colors[Math.abs(hash) % colors.length];
+}
+
+// Create group form
+document.getElementById('createGroupForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const data = {
+        name: document.getElementById('groupName').value,
+        description: document.getElementById('groupDescription').value,
+        type: document.getElementById('groupType').value,
+        color: document.querySelector('input[name="groupColor"]:checked').value
+    };
+    
+    try {
+        const response = await fetch('/api/create-group', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(data)
+        });
+        const result = await response.json();
+        
+        if (result.success) {
+            if (window.FinAnalyzer) window.FinAnalyzer.showNotification(result.message, 'success');
+            document.getElementById('createGroupForm').reset();
+            loadGroups();
+        } else {
+            if (window.FinAnalyzer) window.FinAnalyzer.showNotification(result.message, 'error');
+        }
+    } catch (error) {
+        if (window.FinAnalyzer) window.FinAnalyzer.showNotification('Error creating group', 'error');
+    }
+});
+
+// Join group form
+document.getElementById('joinGroupForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const inviteCode = document.getElementById('inviteCode').value.toUpperCase();
+    
+    try {
+        const response = await fetch('/api/join-group', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({invite_code: inviteCode})
+        });
+        const result = await response.json();
+        
+        if (result.success) {
+            if (window.FinAnalyzer) window.FinAnalyzer.showNotification(result.message, 'success');
+            document.getElementById('joinGroupForm').reset();
+            loadGroups();
+        } else {
+            if (window.FinAnalyzer) window.FinAnalyzer.showNotification(result.message, 'error');
+        }
+    } catch (error) {
+        if (window.FinAnalyzer) window.FinAnalyzer.showNotification('Error joining group', 'error');
+    }
+});
+
+// Settings form
+document.getElementById('settingsForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const data = {
+        name: document.getElementById('settingsName').value,
+        description: document.getElementById('settingsDescription').value,
+        type: document.getElementById('settingsType').value,
+        privacy: document.getElementById('settingsPrivacy').value,
+        auto_approve: document.getElementById('settingsAutoApprove').checked
+    };
+    
+    try {
+        const response = await fetch(`/api/group/${currentGroupId}/settings`, {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(data)
+        });
+        const result = await response.json();
+        
+        if (result.success) {
+            if (window.FinAnalyzer) window.FinAnalyzer.showNotification(result.message, 'success');
+            closeSettings();
+            viewGroup(currentGroupId); // Reload
+            loadGroups(); // Refresh list
+        } else {
+            if (window.FinAnalyzer) window.FinAnalyzer.showNotification(result.message, 'error');
+        }
+    } catch (error) {
+        if (window.FinAnalyzer) window.FinAnalyzer.showNotification('Error updating settings', 'error');
+    }
+});
+
+// Load groups on page load
+document.addEventListener('DOMContentLoaded', loadGroups);
+</script>
+{% endblock %}

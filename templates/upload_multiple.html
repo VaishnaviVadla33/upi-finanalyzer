@@ -1,0 +1,328 @@
+{% extends "base.html" %}
+{% block title %}Bulk Upload - FinAnalyzer{% endblock %}
+{% block page_title %}Bulk Upload{% endblock %}
+
+{% block content %}
+<div style="max-width:1200px;margin:0 auto">
+    <!-- Step 1: Upload Photos -->
+    <div id="step1" class="card" style="animation:fadeUp .6s var(--ease) both">
+        <div class="card-header">
+            <div>
+                <h3 class="card-title"><i class="fas fa-images" style="color:var(--accent-light);margin-right:8px"></i>Upload Multiple Screenshots</h3>
+                <p class="card-subtitle">Select up to 20 UPI screenshots for batch processing</p>
+            </div>
+        </div>
+        
+        <div class="upload-zone" id="uploadArea">
+            <div class="upload-zone-inner">
+                <div style="width:64px;height:64px;background:rgba(99,102,241,.1);border-radius:var(--radius-xl);display:flex;align-items:center;justify-content:center;margin:0 auto 16px">
+                    <i class="fas fa-cloud-arrow-up" style="font-size:24px;color:var(--accent-light)"></i>
+                </div>
+                <h4 style="font-weight:600;margin-bottom:6px">Drop your screenshots here</h4>
+                <p style="color:var(--text-muted);font-size:var(--fs-sm);margin-bottom:16px">PNG, JPG or WEBP — max 20 files, 10MB each</p>
+                <input type="file" id="fileInput" accept="image/*" multiple style="display:none">
+                <button class="btn btn-primary" style="font-size:var(--fs-sm)" onclick="document.getElementById('fileInput').click()">
+                    <i class="fas fa-folder-open"></i> Choose Files
+                </button>
+            </div>
+        </div>
+
+        <!-- Photo Previews -->
+        <div id="photoPreviewsContainer" style="display:none;margin-top:var(--space-6)">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:var(--space-4)">
+                <h4 style="font-weight:600"><span id="photoCount">0</span> Photos Selected</h4>
+                <button class="btn btn-outline btn-sm" onclick="clearPhotos()"><i class="fas fa-trash"></i> Clear All</button>
+            </div>
+            <div id="photoPreviewsGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:var(--space-4)"></div>
+            <button id="processBtn" class="btn btn-primary" style="width:100%;margin-top:var(--space-6)" onclick="processAllPhotos()">
+                <i class="fas fa-wand-magic-sparkles"></i> Process All Photos
+            </button>
+        </div>
+    </div>
+
+    <!-- Step 2: Processing Progress -->
+    <div id="step2" class="card" style="display:none;margin-top:var(--space-6);animation:fadeUp .6s var(--ease) both">
+        <div class="card-header">
+            <h3 class="card-title"><i class="fas fa-spinner fa-spin" style="color:var(--accent-light);margin-right:8px"></i>Processing Photos</h3>
+        </div>
+        <div style="padding:var(--space-6)">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-4)">
+                <span style="font-size:var(--fs-lg);font-weight:600" id="progressText">Processing 0/0...</span>
+                <span style="font-size:var(--fs-sm);color:var(--text-muted)" id="progressPercent">0%</span>
+            </div>
+            <div style="background:rgba(255,255,255,.06);border-radius:var(--radius-full);height:12px;overflow:hidden">
+                <div id="mainProgressBar" style="background:var(--gradient);height:100%;width:0%;transition:width .3s var(--ease);border-radius:var(--radius-full)"></div>
+            </div>
+            <div id="processingLog" style="margin-top:var(--space-6);max-height:300px;overflow-y:auto"></div>
+        </div>
+    </div>
+
+    <!-- Step 3: Review & Edit Transactions -->
+    <div id="step3" class="card" style="display:none;margin-top:var(--space-6);animation:fadeUp .6s var(--ease) both">
+        <div class="card-header">
+            <div style="display:flex;justify-content:space-between;align-items:center;width:100%">
+                <div>
+                    <h3 class="card-title"><i class="fas fa-list-check" style="color:var(--success);margin-right:8px"></i>Review Extracted Transactions</h3>
+                    <p class="card-subtitle">Edit any transaction before saving</p>
+                </div>
+                <button class="btn btn-primary" onclick="saveAllTransactions()">
+                    <i class="fas fa-save"></i> Save All (<span id="transactionCount">0</span>)
+                </button>
+            </div>
+        </div>
+        <div id="transactionsTable" style="overflow-x:auto"></div>
+    </div>
+</div>
+
+<style>
+    .upload-zone{border:2px dashed rgba(99,102,241,.25);border-radius:var(--radius-2xl);padding:var(--space-12);text-align:center;transition:var(--transition);cursor:pointer;position:relative;overflow:hidden}
+    .upload-zone::before{content:'';position:absolute;inset:0;background:radial-gradient(circle at 50% 50%,rgba(99,102,241,.04),transparent 70%);transition:var(--transition);opacity:0}
+    .upload-zone:hover{border-color:rgba(99,102,241,.5);background:rgba(99,102,241,.03)}
+    .upload-zone:hover::before{opacity:1}
+    .upload-zone.dragover{border-color:var(--accent);background:rgba(99,102,241,.06)}
+    
+    .photo-preview{position:relative;border-radius:var(--radius-lg);overflow:hidden;aspect-ratio:1;border:2px solid var(--border);transition:var(--transition)}
+    .photo-preview:hover{border-color:var(--accent);transform:scale(1.05)}
+    .photo-preview img{width:100%;height:100%;object-fit:cover}
+    .photo-preview-remove{position:absolute;top:4px;right:4px;background:var(--danger);color:white;border:none;width:24px;height:24px;border-radius:var(--radius-full);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px;opacity:0;transition:var(--transition)}
+    .photo-preview:hover .photo-preview-remove{opacity:1}
+    
+    .processing-log-item{padding:8px 12px;background:var(--bg-glass);border-radius:var(--radius-lg);margin-bottom:8px;display:flex;align-items:center;gap:10px;font-size:var(--fs-sm)}
+    .processing-log-item.success{border-left:3px solid var(--success)}
+    .processing-log-item.error{border-left:3px solid var(--danger)}
+    
+    .transaction-row{display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr 1fr 80px;gap:var(--space-3);padding:var(--space-4);border-bottom:1px solid var(--border);align-items:center}
+    .transaction-row:hover{background:rgba(255,255,255,.02)}
+    .transaction-header{font-weight:600;font-size:var(--fs-sm);color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em}
+    .transaction-input{background:var(--bg-glass);border:1px solid var(--border);border-radius:var(--radius-lg);padding:8px 12px;color:var(--text-primary);font-size:var(--fs-sm);width:100%}
+    .transaction-input:focus{outline:none;border-color:var(--accent)}
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let selectedFiles = [];
+    let extractedTransactions = [];
+    
+    const uploadArea = document.getElementById('uploadArea');
+    const fileInput = document.getElementById('fileInput');
+    
+    // Drag and drop
+    uploadArea.addEventListener('dragover', (e) => { e.preventDefault(); uploadArea.classList.add('dragover'); });
+    uploadArea.addEventListener('dragleave', () => { uploadArea.classList.remove('dragover'); });
+    uploadArea.addEventListener('drop', (e) => {
+        e.preventDefault();
+        uploadArea.classList.remove('dragover');
+        if (e.dataTransfer.files.length > 0) handleFileSelection(e.dataTransfer.files);
+    });
+    
+    fileInput.addEventListener('change', (e) => {
+        if (e.target.files.length > 0) handleFileSelection(e.target.files);
+    });
+    
+    function handleFileSelection(files) {
+        const fileArray = Array.from(files).filter(f => f.type.startsWith('image/'));
+        
+        if (fileArray.length === 0) {
+            if (window.FinAnalyzer) window.FinAnalyzer.showNotification('Please select image files', 'error');
+            return;
+        }
+        
+        if (selectedFiles.length + fileArray.length > 20) {
+            if (window.FinAnalyzer) window.FinAnalyzer.showNotification('Maximum 20 photos allowed', 'error');
+            return;
+        }
+        
+        selectedFiles.push(...fileArray);
+        displayPhotoPreviews();
+    }
+    
+    function displayPhotoPreviews() {
+        const container = document.getElementById('photoPreviewsContainer');
+        const grid = document.getElementById('photoPreviewsGrid');
+        const count = document.getElementById('photoCount');
+        
+        if (selectedFiles.length === 0) {
+            container.style.display = 'none';
+            return;
+        }
+        
+        container.style.display = 'block';
+        count.textContent = selectedFiles.length;
+        grid.innerHTML = '';
+        
+        selectedFiles.forEach((file, index) => {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const div = document.createElement('div');
+                div.className = 'photo-preview';
+                div.innerHTML = `
+                    <img src="${e.target.result}" alt="Photo ${index + 1}">
+                    <button class="photo-preview-remove" onclick="removePhoto(${index})">
+                        <i class="fas fa-times"></i>
+                    </button>
+                `;
+                grid.appendChild(div);
+            };
+            reader.readAsDataURL(file);
+        });
+    }
+    
+    function removePhoto(index) {
+        selectedFiles.splice(index, 1);
+        displayPhotoPreviews();
+    }
+    
+    function clearPhotos() {
+        selectedFiles = [];
+        displayPhotoPreviews();
+        fileInput.value = '';
+    }
+    
+    async function processAllPhotos() {
+        if (selectedFiles.length === 0) return;
+        
+        // Show step 2
+        document.getElementById('step1').style.display = 'none';
+        document.getElementById('step2').style.display = 'block';
+        
+        extractedTransactions = [];
+        const log = document.getElementById('processingLog');
+        log.innerHTML = '';
+        
+        for (let i = 0; i < selectedFiles.length; i++) {
+            const file = selectedFiles[i];
+            const progress = ((i + 1) / selectedFiles.length) * 100;
+            
+            document.getElementById('progressText').textContent = `Processing ${i + 1}/${selectedFiles.length}...`;
+            document.getElementById('progressPercent').textContent = `${Math.round(progress)}%`;
+            document.getElementById('mainProgressBar').style.width = `${progress}%`;
+            
+            try {
+                const formData = new FormData();
+                formData.append('file', file);
+                
+                const response = await fetch('/api/upload', { method: 'POST', body: formData });
+                const result = await response.json();
+                
+                if (result.success) {
+                    extractedTransactions.push(result.data);
+                    log.innerHTML += `<div class="processing-log-item success">
+                        <i class="fas fa-check-circle" style="color:var(--success)"></i>
+                        <span>Photo ${i + 1}: Extracted ₹${result.data.amount || '0'} - ${result.data.name || 'Unknown'}</span>
+                    </div>`;
+                } else {
+                    log.innerHTML += `<div class="processing-log-item error">
+                        <i class="fas fa-exclamation-circle" style="color:var(--danger)"></i>
+                        <span>Photo ${i + 1}: ${result.message || 'Failed to extract'}</span>
+                    </div>`;
+                }
+                
+                log.scrollTop = log.scrollHeight;
+            } catch (error) {
+                log.innerHTML += `<div class="processing-log-item error">
+                    <i class="fas fa-exclamation-circle" style="color:var(--danger)"></i>
+                    <span>Photo ${i + 1}: Error - ${error.message}</span>
+                </div>`;
+            }
+        }
+        
+        // Show step 3 after 1 second
+        setTimeout(() => {
+            document.getElementById('step2').style.display = 'none';
+            document.getElementById('step3').style.display = 'block';
+            displayTransactionsTable();
+        }, 1000);
+    }
+    
+    function displayTransactionsTable() {
+        const table = document.getElementById('transactionsTable');
+        document.getElementById('transactionCount').textContent = extractedTransactions.length;
+        
+        if (extractedTransactions.length === 0) {
+            table.innerHTML = '<div style="text-align:center;padding:var(--space-8);color:var(--text-muted)">No transactions extracted</div>';
+            return;
+        }
+        
+        let html = '<div style="padding:var(--space-4)">';
+        html += '<div class="transaction-row transaction-header">';
+        html += '<div>Name</div><div>Amount</div><div>Type</div><div>Category</div><div>Date</div><div>Time</div><div>Action</div>';
+        html += '</div>';
+        
+        extractedTransactions.forEach((tx, index) => {
+            html += `<div class="transaction-row">
+                <div><input type="text" class="transaction-input" value="${tx.name || ''}" onchange="updateTransaction(${index}, 'name', this.value)"></div>
+                <div><input type="number" class="transaction-input" value="${tx.amount || ''}" onchange="updateTransaction(${index}, 'amount', this.value)"></div>
+                <div>
+                    <select class="transaction-input" onchange="updateTransaction(${index}, 'payment_type', this.value)">
+                        <option value="debit" ${tx.payment_type === 'debit' ? 'selected' : ''}>Debit</option>
+                        <option value="credit" ${tx.payment_type === 'credit' ? 'selected' : ''}>Credit</option>
+                    </select>
+                </div>
+                <div>
+                    <select class="transaction-input" onchange="updateTransaction(${index}, 'payee_type', this.value)">
+                        <option value="Food" ${tx.payee_type === 'Food' ? 'selected' : ''}>Food</option>
+                        <option value="Transport" ${tx.payee_type === 'Transport' ? 'selected' : ''}>Transport</option>
+                        <option value="Shopping" ${tx.payee_type === 'Shopping' ? 'selected' : ''}>Shopping</option>
+                        <option value="Entertainment" ${tx.payee_type === 'Entertainment' ? 'selected' : ''}>Entertainment</option>
+                        <option value="Bills" ${tx.payee_type === 'Bills' ? 'selected' : ''}>Bills</option>
+                        <option value="Other" ${tx.payee_type === 'Other' ? 'selected' : ''}>Other</option>
+                    </select>
+                </div>
+                <div><input type="date" class="transaction-input" value="${tx.date || ''}" onchange="updateTransaction(${index}, 'date', this.value)"></div>
+                <div><input type="time" class="transaction-input" value="${tx.time || ''}" onchange="updateTransaction(${index}, 'time', this.value)"></div>
+                <div><button class="btn btn-sm" style="background:var(--danger);color:white" onclick="removeTransaction(${index})"><i class="fas fa-trash"></i></button></div>
+            </div>`;
+        });
+        
+        html += '</div>';
+        table.innerHTML = html;
+    }
+    
+    function updateTransaction(index, field, value) {
+        extractedTransactions[index][field] = value;
+    }
+    
+    function removeTransaction(index) {
+        extractedTransactions.splice(index, 1);
+        displayTransactionsTable();
+    }
+    
+    async function saveAllTransactions() {
+        if (extractedTransactions.length === 0) {
+            if (window.FinAnalyzer) window.FinAnalyzer.showNotification('No transactions to save', 'error');
+            return;
+        }
+        
+        const saveBtn = event.target;
+        const originalText = saveBtn.innerHTML;
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = '<span class="spin"></span> Saving...';
+        
+        try {
+            const response = await fetch('/api/save-transactions-bulk', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({transactions: extractedTransactions})
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                if (window.FinAnalyzer) window.FinAnalyzer.showNotification(`${extractedTransactions.length} transactions saved!`, 'success');
+                setTimeout(() => {
+                    window.location.href = '/dashboard';
+                }, 1200);
+            } else {
+                if (window.FinAnalyzer) window.FinAnalyzer.showNotification(result.message || 'Failed to save', 'error');
+                saveBtn.disabled = false;
+                saveBtn.innerHTML = originalText;
+            }
+        } catch (error) {
+            if (window.FinAnalyzer) window.FinAnalyzer.showNotification('Error: ' + error.message, 'error');
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = originalText;
+        }
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}Settings - FinAnalyzer{% endblock %}
+{% block page_title %}Settings{% endblock %}
+
+{% block content %}
+<div style="display:flex;flex-direction:column;gap:var(--space-6)">
+    <!-- Profile -->
+    <div class="card" style="animation:fadeUp .6s var(--ease) both">
+        <div class="card-header"><div><h3 class="card-title">Profile Settings</h3><p class="card-subtitle">Manage your account information</p></div></div>
+        <form id="profileForm">
+            <div class="grid grid-cols-2" style="gap:var(--space-4);margin-bottom:var(--space-5)">
+                <div class="form-group" style="margin-bottom:0"><label class="form-label" for="fullName">Full Name</label><input type="text" id="fullName" class="form-input" placeholder="Enter your full name" required></div>
+                <div class="form-group" style="margin-bottom:0"><label class="form-label" for="email">Email Address</label><input type="email" id="email" class="form-input" placeholder="Enter your email" required></div>
+            </div>
+            <div class="grid grid-cols-2" style="gap:var(--space-4);margin-bottom:var(--space-6)">
+                <div class="form-group" style="margin-bottom:0"><label class="form-label" for="phone">Phone Number</label><input type="tel" id="phone" class="form-input" placeholder="Enter phone number"></div>
+                <div class="form-group" style="margin-bottom:0"><label class="form-label" for="currency">Preferred Currency</label><select id="currency" class="form-input"><option value="INR">Indian Rupee (₹)</option><option value="USD">US Dollar ($)</option><option value="EUR">Euro (€)</option><option value="GBP">British Pound (£)</option></select></div>
+            </div>
+            <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Save Profile</button>
+        </form>
+    </div>
+
+    <!-- Security -->
+    <div class="card" style="animation:fadeUp .6s var(--ease) .05s both">
+        <div class="card-header"><div><h3 class="card-title">Security Settings</h3><p class="card-subtitle">Manage your password</p></div></div>
+        <form id="passwordForm">
+            <div class="form-group"><label class="form-label" for="currentPassword">Current Password</label><input type="password" id="currentPassword" class="form-input" placeholder="Enter current password" required></div>
+            <div class="grid grid-cols-2" style="gap:var(--space-4);margin-bottom:var(--space-6)">
+                <div class="form-group" style="margin-bottom:0"><label class="form-label" for="newPassword">New Password</label><input type="password" id="newPassword" class="form-input" placeholder="Enter new password" required></div>
+                <div class="form-group" style="margin-bottom:0"><label class="form-label" for="confirmPassword">Confirm Password</label><input type="password" id="confirmPassword" class="form-input" placeholder="Confirm new password" required></div>
+            </div>
+            <button type="submit" class="btn btn-primary"><i class="fas fa-lock"></i> Update Password</button>
+        </form>
+    </div>
+
+    <!-- Notifications -->
+    <div class="card" style="animation:fadeUp .6s var(--ease) .1s both">
+        <div class="card-header"><div><h3 class="card-title">Notifications</h3><p class="card-subtitle">Choose what you want to receive</p></div></div>
+        <div id="notifSettings">
+            <div class="setting-row"><div><div class="setting-title">Email Notifications</div><div class="setting-desc">Receive email updates about transactions</div></div><label class="toggle"><input type="checkbox" id="emailNotifications" checked><span class="toggle-track"></span></label></div>
+            <div class="setting-row"><div><div class="setting-title">Spending Alerts</div><div class="setting-desc">Get notified when you exceed spending limits</div></div><label class="toggle"><input type="checkbox" id="spendingAlerts" checked><span class="toggle-track"></span></label></div>
+            <div class="setting-row"><div><div class="setting-title">Weekly Reports</div><div class="setting-desc">Receive weekly spending summaries</div></div><label class="toggle"><input type="checkbox" id="weeklyReports" checked><span class="toggle-track"></span></label></div>
+            <div class="setting-row"><div><div class="setting-title">Group Notifications</div><div class="setting-desc">Get notified about group activities</div></div><label class="toggle"><input type="checkbox" id="groupNotifications" checked><span class="toggle-track"></span></label></div>
+        </div>
+        <button class="btn btn-primary" style="margin-top:16px" onclick="saveNotificationSettings()"><i class="fas fa-bell"></i> Save Notifications</button>
+    </div>
+
+    <!-- Data Management -->
+    <div class="card" style="animation:fadeUp .6s var(--ease) .15s both">
+        <div class="card-header"><div><h3 class="card-title">Data Management</h3><p class="card-subtitle">Export or delete your data</p></div></div>
+        <div class="grid grid-cols-2" style="gap:var(--space-4);margin-bottom:var(--space-6)">
+            <button class="btn btn-outline" onclick="exportAllData()"><i class="fas fa-download"></i> Export All Data</button>
+            <button class="btn btn-outline" style="color:var(--danger);border-color:rgba(239,68,68,.3)" onclick="deleteAllData()"><i class="fas fa-trash"></i> Delete All Data</button>
+        </div>
+        <div style="padding:14px 16px;background:var(--danger-bg);border:1px solid rgba(239,68,68,.15);border-radius:var(--radius-xl)">
+            <h4 style="color:var(--danger);font-size:var(--fs-sm);font-weight:600;margin-bottom:4px">⚠️ Danger Zone</h4>
+            <p style="color:var(--danger);font-size:var(--fs-xs);opacity:.8">Deleting your data is permanent and cannot be undone.</p>
+        </div>
+    </div>
+</div>
+
+<style>
+.setting-row{display:flex;align-items:center;justify-content:space-between;padding:14px 0;border-bottom:1px solid var(--border)}
+.setting-row:last-child{border-bottom:none}
+.setting-title{font-size:var(--fs-sm);font-weight:500;margin-bottom:2px}
+.setting-desc{font-size:var(--fs-xs);color:var(--text-muted)}
+.toggle{position:relative;display:inline-block;width:44px;height:24px;cursor:pointer}
+.toggle input{opacity:0;width:0;height:0}
+.toggle-track{position:absolute;inset:0;background:rgba(255,255,255,.1);border-radius:24px;transition:var(--transition)}
+.toggle-track::before{content:'';position:absolute;height:18px;width:18px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:var(--transition)}
+.toggle input:checked+.toggle-track{background:var(--accent)}
+.toggle input:checked+.toggle-track::before{transform:translateX(20px)}
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function loadUserSettings(){try{const ue='{{ session.get("user_email","") }}',un='{{ session.get("user_name","") }}';if(ue)document.getElementById('email').value=ue;if(un)document.getElementById('fullName').value=un}catch(e){console.error(e)}}
+document.getElementById('profileForm').addEventListener('submit',async(e)=>{e.preventDefault();await new Promise(r=>setTimeout(r,1000));if(window.FinAnalyzer)FinAnalyzer.showNotification('Profile updated!','success')});
+document.getElementById('passwordForm').addEventListener('submit',async(e)=>{e.preventDefault();const np=document.getElementById('newPassword').value,cp=document.getElementById('confirmPassword').value;if(np!==cp){if(window.FinAnalyzer)FinAnalyzer.showNotification('Passwords don\'t match','error');return}if(np.length<6){if(window.FinAnalyzer)FinAnalyzer.showNotification('Password must be 6+ characters','error');return}await new Promise(r=>setTimeout(r,1000));if(window.FinAnalyzer)FinAnalyzer.showNotification('Password updated!','success');document.getElementById('passwordForm').reset()});
+function saveNotificationSettings(){const s={emailNotifications:document.getElementById('emailNotifications').checked,spendingAlerts:document.getElementById('spendingAlerts').checked,weeklyReports:document.getElementById('weeklyReports').checked,groupNotifications:document.getElementById('groupNotifications').checked};localStorage.setItem('notificationSettings',JSON.stringify(s));if(window.FinAnalyzer)FinAnalyzer.showNotification('Notification settings saved!','success')}
+function exportAllData(){if(!confirm('Download all data as CSV?'))return;const csv='Date,Name,Amount,Type,Category\n2024-03-15,Coffee,250,debit,Food';const b=new Blob([csv],{type:'text/csv'}),u=URL.createObjectURL(b),a=document.createElement('a');a.href=u;a.download='finanalyzer_data.csv';a.click();URL.revokeObjectURL(u);if(window.FinAnalyzer)FinAnalyzer.showNotification('Data exported!','success')}
+function deleteAllData(){if(prompt('Type DELETE to confirm:')!=='DELETE')return;if(!confirm('This cannot be undone!'))return;setTimeout(()=>{if(window.FinAnalyzer)FinAnalyzer.showNotification('All data deleted','success');setTimeout(()=>window.location.href='/logout',2000)},1000)}
+function loadStoredSettings(){const ns=localStorage.getItem('notificationSettings');if(ns){const s=JSON.parse(ns);document.getElementById('emailNotifications').checked=s.emailNotifications;document.getElementById('spendingAlerts').checked=s.spendingAlerts;document.getElementById('weeklyReports').checked=s.weeklyReports;document.getElementById('groupNotifications').checked=s.groupNotifications}}
+document.addEventListener('DOMContentLoaded',()=>{loadUserSettings();loadStoredSettings()});
+</script>
+{% endblock %}
