@@ -1,11 +1,17 @@
-# Use Python 3.11 slim image
-FROM python:3.11-slim
+# Use Ubuntu base image for better package availability
+FROM ubuntu:22.04
 
 # Set working directory
 WORKDIR /app
 
-# Install system dependencies including Tesseract OCR
+# Prevent interactive prompts during package installation
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install Python and system dependencies including Tesseract OCR
 RUN apt-get update && apt-get install -y \
+    python3 \
+    python3-pip \
+    python3-dev \
     tesseract-ocr \
     tesseract-ocr-eng \
     libtesseract-dev \
@@ -16,6 +22,9 @@ RUN apt-get update && apt-get install -y \
     libxrender-dev \
     libgomp1 \
     && rm -rf /var/lib/apt/lists/*
+
+# Create symlink for python command
+RUN ln -s /usr/bin/python3 /usr/bin/python
 
 # Copy requirements first for better caching
 COPY requirements.txt .
