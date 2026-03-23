@@ -65,11 +65,9 @@ _AMOUNT_RE = re.compile(r'₹\s*(\d{1,3}(?:,\d{3})*(?:\.\d{1,2})?)')
 
 def extract_amount(text: str) -> str:
     """Extract amount using simple and effective approach.
-    1. Find all ₹ amounts in the text
-    2. Return the first valid amount found
-    3. If amount starts with misread rupee symbol (2/3/7/1/5), try removing first digit
+    OCR often misreads ₹ as the first digit, so we always try removing first digit.
     """
-    # Find all amounts with ₹ symbol
+    # First: Look for amounts with ₹ symbol (rare but best case)
     amounts = _AMOUNT_RE.findall(text)
     
     for amount_str in amounts:
@@ -80,29 +78,29 @@ def extract_amount(text: str) -> str:
         except ValueError:
             continue
     
-    # Fallback: look for amounts that might have misread rupee symbol
-    # Pattern: number starting with 2,3,7,1,5 followed by 3+ digits
-    fallback_pattern = r'\b([2371578])(\d{3,6}(?:\.\d{2})?)\b'
-    fallback_matches = re.findall(fallback_pattern, text)
-    
-    for first_digit, rest_digits in fallback_matches:
-        try:
-            # Try removing the first digit (likely misread rupee symbol)
-            amount = float(rest_digits.replace(',', ''))
-            if 10 <= amount <= 10_000_000:  # reasonable amount range
-                return str(amount)
-        except ValueError:
-            continue
-    
-    # Last resort: find any reasonable number that could be an amount
-    number_pattern = r'\b(\d{2,6}(?:\.\d{2})?)\b'
+    # Main approach: Find all numbers and assume first digit is misread rupee symbol
+    # Look for any number with 2+ digits
+    number_pattern = r'\b(\d{2,7}(?:\.\d{2})?)\b'
     numbers = re.findall(number_pattern, text)
     
     for num_str in numbers:
         try:
-            amount = float(num_str.replace(',', ''))
-            if 10 <= amount <= 100000:  # conservative range for last resort
-                return str(amount)
+            original_amount = float(num_str.replace(',', ''))
+            
+            # Try removing first digit (likely misread rupee symbol)
+            if len(num_str.replace('.', '').replace(',', '')) >= 2:
+                # Remove first digit
+                without_first = num_str[1:]
+                if without_first and not without_first.startswith('.'):
+                    amount_without_first = float(without_first.replace(',', ''))
+                    # Check if the amount without first digit is reasonable
+                    if 10 <= amount_without_first <= 1_000_000:
+                        return str(amount_without_first)
+            
+            # If removing first digit doesn't work, try original number
+            if 10 <= original_amount <= 100_000:
+                return str(original_amount)
+                
         except ValueError:
             continue
     
