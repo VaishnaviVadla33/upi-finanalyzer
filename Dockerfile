@@ -14,6 +14,7 @@ RUN apt-get update && apt-get install -y \
     python3-dev \
     tesseract-ocr \
     tesseract-ocr-eng \
+    tesseract-ocr-script-latn \
     libtesseract-dev \
     libgl1-mesa-glx \
     libglib2.0-0 \
@@ -25,6 +26,9 @@ RUN apt-get update && apt-get install -y \
 
 # Create symlink for python command
 RUN ln -s /usr/bin/python3 /usr/bin/python
+
+# Set Tesseract environment variables
+ENV TESSDATA_PREFIX=/usr/share/tesseract-ocr/4.00/tessdata/
 
 # Copy requirements first for better caching
 COPY requirements.txt .

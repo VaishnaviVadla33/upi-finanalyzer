@@ -160,6 +160,22 @@ FIREBASE_CLIENT_CONFIG = load_firebase_config()
 # ── Tesseract ─────────────────────────────────────────────────────────────────
 def configure_tesseract():
     """Configure Tesseract OCR path for different environments"""
+    # Set environment variable for tessdata
+    possible_tessdata_paths = [
+        '/usr/share/tesseract-ocr/4.00/tessdata/',
+        '/usr/share/tesseract-ocr/5/tessdata/',
+        '/usr/share/tessdata/',
+        '/usr/local/share/tessdata/',
+    ]
+    
+    for tessdata_path in possible_tessdata_paths:
+        if os.path.exists(tessdata_path):
+            os.environ['TESSDATA_PREFIX'] = tessdata_path
+            print(f"✅ Set TESSDATA_PREFIX to: {tessdata_path}")
+            break
+    else:
+        print("❌ No tessdata directory found")
+    
     paths = [
         '/usr/bin/tesseract',  # Docker/Linux (production)
         'tesseract',  # System PATH
@@ -172,6 +188,24 @@ def configure_tesseract():
         if os.path.exists(p) or p == 'tesseract':
             pytesseract.pytesseract.tesseract_cmd = p
             print(f"✅ Tesseract configured at: {p}")
+            
+            # Test Tesseract configuration
+            try:
+                version = pytesseract.get_tesseract_version()
+                print(f"✅ Tesseract version: {version}")
+                
+                # Test language availability
+                langs = pytesseract.get_languages()
+                print(f"✅ Available languages: {langs}")
+                
+                if 'eng' in langs:
+                    print("✅ English language data available")
+                else:
+                    print("❌ English language data NOT available")
+                    
+            except Exception as e:
+                print(f"❌ Tesseract test failed: {e}")
+            
             return
     
     print("❌ Tesseract not found in any expected location")
