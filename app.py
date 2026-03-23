@@ -49,7 +49,16 @@ load_dotenv()
 firebase_key_path = os.getenv('FIREBASE_KEY_PATH', 'FIREBASE_CREDENTIALS.json')
 
 try:
-    if os.path.exists(firebase_key_path):
+    # Try to load from environment variable first (for deployment)
+    firebase_creds_json = os.getenv('FIREBASE_CREDENTIALS_JSON')
+    if firebase_creds_json:
+        import json
+        cred_dict = json.loads(firebase_creds_json)
+        cred = credentials.Certificate(cred_dict)
+        firebase_admin.initialize_app(cred)
+        db = firestore.client()
+    elif os.path.exists(firebase_key_path):
+        # Fallback to file (for local development)
         cred = credentials.Certificate(firebase_key_path)
         firebase_admin.initialize_app(cred)
         db = firestore.client()
