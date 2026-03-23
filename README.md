@@ -370,13 +370,7 @@ finanalyzer/
 ## OCR Processing Details
 
 ### Supported UPI Apps
-- Google Pay
 - PhonePe
-- Paytm
-- BHIM
-- Amazon Pay
-- WhatsApp Pay
-- And other UPI-based payment apps
 
 ### Extraction Capabilities
 - Transaction amount with rupee symbol normalization
@@ -443,83 +437,4 @@ if __name__ == '__main__':
 
 ## Contributing
 
-We welcome contributions to FinAnalyzer! Here's how you can help:
-
-### Reporting Bugs
-
-1. Check if the bug has already been reported in Issues
-2. Create a new issue with detailed description
-3. Include steps to reproduce, expected behavior, and screenshots
-
-### Suggesting Features
-
-1. Open an issue with the "enhancement" label
-2. Describe the feature and its benefits
-3. Provide examples or mockups if possible
-
-### Pull Requests
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Make your changes with clear commit messages
-4. Test thoroughly
-5. Push to your fork (`git push origin feature/amazing-feature`)
-6. Open a Pull Request with detailed description
-
-### Code Style
-
-- Follow PEP 8 for Python code
-- Use meaningful variable and function names
-- Add comments for complex logic
-- Write docstrings for functions
-- Keep functions small and focused
-
-## License
-
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
-
-## Acknowledgments
-
-- Firebase for providing robust backend infrastructure
-- Tesseract OCR for powerful text extraction capabilities
-- Chart.js for beautiful data visualizations
-- Flask community for the excellent web framework
-- Render for reliable hosting platform
-
-## Support
-
-For questions, issues, or feature requests:
-
-- Open an issue on [GitHub](https://github.com/VaishnaviVadla33/upi-finanalyzer/issues)
-- Email: support@finanalyzer.com
-- Documentation: [Wiki](https://github.com/VaishnaviVadla33/upi-finanalyzer/wiki)
-
-## Roadmap
-
-### Upcoming Features
-
-- Mobile application (iOS and Android)
-- Export transactions to CSV/PDF
-- Integration with bank APIs
-- Recurring transaction detection
-- Budget planning tools
-- Multi-currency support
-- Dark mode theme
-- Voice-based transaction entry
-- Receipt storage in cloud
-- Advanced fraud detection
-
-## Version History
-
-### v1.0.0 (Current)
-- Initial release with core features
-- OCR-powered receipt scanning
-- Dashboard and analytics
-- Group expense management
-- Savings goals and spending alerts
-- Email notifications
-- Docker deployment support
-
----
-
-Built with care by the FinAnalyzer Team
+We welcome contributions to FinAnalyzer!
