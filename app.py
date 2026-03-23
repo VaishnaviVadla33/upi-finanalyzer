@@ -159,16 +159,30 @@ FIREBASE_CLIENT_CONFIG = load_firebase_config()
 
 # ── Tesseract ─────────────────────────────────────────────────────────────────
 def configure_tesseract():
+    """Configure Tesseract OCR path for different environments"""
     paths = [
-        r'C:\Program Files\Tesseract-OCR\tesseract.exe',
-        r'C:\Program Files (x86)\Tesseract-OCR\tesseract.exe',
-        r'C:\Users\{}\AppData\Local\Tesseract-OCR\tesseract.exe'.format(os.getenv('USERNAME', '')),
-        'tesseract',
+        '/usr/bin/tesseract',  # Docker/Linux (production)
+        'tesseract',  # System PATH
+        r'C:\Program Files\Tesseract-OCR\tesseract.exe',  # Windows
+        r'C:\Program Files (x86)\Tesseract-OCR\tesseract.exe',  # Windows x86
+        r'C:\Users\{}\AppData\Local\Tesseract-OCR\tesseract.exe'.format(os.getenv('USERNAME', '')),  # Windows local
     ]
+    
     for p in paths:
         if os.path.exists(p) or p == 'tesseract':
             pytesseract.pytesseract.tesseract_cmd = p
+            print(f"✅ Tesseract configured at: {p}")
             return
+    
+    print("❌ Tesseract not found in any expected location")
+    # Try to find tesseract in PATH
+    import shutil
+    tesseract_path = shutil.which('tesseract')
+    if tesseract_path:
+        pytesseract.pytesseract.tesseract_cmd = tesseract_path
+        print(f"✅ Tesseract found in PATH: {tesseract_path}")
+    else:
+        print("❌ Tesseract not found in PATH either")
 
 configure_tesseract()
 
@@ -313,10 +327,13 @@ def health_check():
         
         # Check Tesseract
         try:
-            pytesseract.get_tesseract_version()
+            version = pytesseract.get_tesseract_version()
             checks['tesseract'] = True
+            checks['debug_info']['tesseract_version'] = str(version)
+            checks['debug_info']['tesseract_path'] = pytesseract.pytesseract.tesseract_cmd
         except Exception as e:
             checks['debug_info']['tesseract_error'] = str(e)
+            checks['debug_info']['tesseract_path'] = pytesseract.pytesseract.tesseract_cmd
             
         # Check Firebase connection with detailed info
         try:
