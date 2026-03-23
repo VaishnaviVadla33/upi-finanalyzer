@@ -40,7 +40,9 @@ from dashboard_helpers import (
 )
 
 app = Flask(__name__, template_folder='templates', static_folder='static')
-app.secret_key = 'finanalyzer_secret_key_2024'
+
+# Use environment variable for secret key in production
+app.secret_key = os.getenv('SECRET_KEY', 'finanalyzer_secret_key_2024')
 
 # ── Firebase ──────────────────────────────────────────────────────────────────
 load_dotenv()
@@ -265,6 +267,41 @@ def login_required(f):
 @app.route('/favicon.ico')
 def favicon():
     return app.send_static_file('favicon.ico')
+
+@app.route('/health')
+def health_check():
+    """Health check endpoint for deployment monitoring"""
+    try:
+        # Basic health checks
+        checks = {
+            'status': 'healthy',
+            'timestamp': datetime.now().isoformat(),
+            'tesseract': False,
+            'firebase': False
+        }
+        
+        # Check Tesseract
+        try:
+            pytesseract.get_tesseract_version()
+            checks['tesseract'] = True
+        except:
+            pass
+            
+        # Check Firebase connection
+        try:
+            if 'db' in globals():
+                db.collection('health_check').limit(1).get()
+                checks['firebase'] = True
+        except:
+            pass
+            
+        return jsonify(checks), 200
+    except Exception as e:
+        return jsonify({
+            'status': 'unhealthy',
+            'error': str(e),
+            'timestamp': datetime.now().isoformat()
+        }), 500
 
 @app.route('/.well-known/appspecific/com.chrome.devtools.json')
 def chrome_devtools():
@@ -2485,5 +2522,6 @@ def group_analytics_detail(group_id):
 
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
-    app.run(debug=True, port=5000)
+    port = int(os.getenv('PORT', 5000))
+    debug = os.getenv('FLASK_DEBUG', 'False').lower() == 'true'
+    app.run(host='0.0.0.0', port=port, debug=debug)
