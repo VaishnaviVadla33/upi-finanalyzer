@@ -1201,19 +1201,19 @@ def parse_transaction_text(text):
     else:
         print("❓ No date/time pattern found")
 
-    # Extract amount - PRIORITIZE comma-separated amounts, then any amount with ₹
+    # Extract amount - IMPROVED patterns for better rupee symbol detection
     amount_patterns = [
-        # High priority: comma-separated amounts
-        (r'₹\s*(\d{1,3}(?:,\d{3})+)', 'high'),  # ₹1,500
-        (r'Rs\.?\s*(\d{1,3}(?:,\d{3})+)', 'high'),  # Rs.1,500
+        # High priority: comma-separated amounts with various rupee representations
+        (r'[₹Rs\.]*\s*(\d{1,3}(?:,\d{3})+)', 'high'),  # ₹1,500 or Rs.1,500
+        (r'[2371]\s*(\d{1,3}(?:,\d{3})+)', 'high'),  # 21,500 (₹ misread as 2/3/7/1)
         
         # Medium priority: amounts with rupee symbol (2-6 digits)
-        (r'₹\s*(\d{2,6})', 'medium'),  # ₹500 or ₹1500
-        (r'Rs\.?\s*(\d{2,6})', 'medium'),  # Rs.500
+        (r'[₹Rs\.]\s*(\d{2,6})', 'medium'),  # ₹500 or Rs.500
+        (r'[2371]\s*(\d{2,6})', 'medium'),  # 2500 (₹ misread as 2/3/7/1)
         
         # Low priority: standalone amounts
-        (r'(?:Amount|Total)[:\s]*₹?\s*(\d{1,3}(?:,\d{3})+)', 'low'),
-        (r'(?:Amount|Total)[:\s]*₹?\s*(\d{2,6})', 'low'),
+        (r'(?:Amount|Total)[:\s]*[₹Rs\.]*\s*(\d{1,3}(?:,\d{3})+)', 'low'),
+        (r'(?:Amount|Total)[:\s]*[₹Rs\.]*\s*(\d{2,6})', 'low'),
     ]
     
     found_amounts = []
@@ -1224,7 +1224,7 @@ def parse_transaction_text(text):
                 amount = float(amount_str)
                 if 10 <= amount <= 10_000_000:  # Reasonable amount range
                     found_amounts.append((amount, priority, pattern))
-                    print(f"💵 Found amount: ₹{amount} (priority: {priority})")
+                    print(f"💵 Found amount: ₹{amount} (priority: {priority}, pattern: {pattern})")
             except ValueError:
                 continue
     
@@ -1242,68 +1242,101 @@ def parse_transaction_text(text):
     # If still no amount, look for any comma-separated number OR any 2-6 digit number
     if not details['amount'] or details['amount'] == '0':
         print("🔍 Searching for fallback amounts...")
-        comma_numbers = re.findall(r'\b(\d{1,3}(?:,\d{3})+)\b', text)
-        for num_str in comma_numbers:
-            try:
-                amount = float(num_str.replace(',', ''))
-                if 10 <= amount <= 10_000_000:
-                    details['amount'] = str(amount)
-                    print(f"✅ Found fallback comma amount: ₹{amount}")
-                    break
-            except ValueError:
-                continue
         
-        # Last resort: find any reasonable number
-        if not details['amount'] or details['amount'] == '0':
-            all_numbers = re.findall(r'\b(\d{2,6})\b', text)
-            for num in all_numbers:
+        # Look for numbers that might have rupee symbol misread as digit
+        fallback_patterns = [
+            r'\b(\d{1,3}(?:,\d{3})+)\b',  # Any comma-separated number
+            r'\b([2371]\d{3,5})\b',  # Numbers starting with 2,3,7,1 (common ₹ misreads)
+            r'\b(\d{2,6})\b'  # Any reasonable number
+        ]
+        
+        for pattern in fallback_patterns:
+            numbers = re.findall(pattern, text)
+            for num_str in numbers:
                 try:
-                    amount = float(num)
-                    # Skip transaction IDs and phone numbers (too long)
-                    if 10 <= amount <= 100000:
+                    # If it starts with 2,3,7,1 and is 4+ digits, likely has misread ₹
+                    if num_str[0] in '2371' and len(num_str) >= 4:
+                        # Remove the first digit (misread ₹)
+                        amount = float(num_str[1:].replace(',', ''))
+                    else:
+                        amount = float(num_str.replace(',', ''))
+                    
+                    if 10 <= amount <= 10_000_000:
                         details['amount'] = str(amount)
-                        print(f"✅ Found fallback number: ₹{amount}")
+                        print(f"✅ Found fallback amount: ₹{amount} (from {num_str})")
                         break
                 except ValueError:
                     continue
+            if details['amount'] and details['amount'] != '0':
+                break
 
-    # Extract sender/receiver name - SIMPLIFIED patterns
+    # Extract sender/receiver name - IMPROVED patterns with better cleaning
     name_patterns = []
     
     if details['payment_type'] == 'credit':
         name_patterns = [
-            r'Received from[\s\n]+([A-Za-z][A-Za-z\s]+)',  # Received from Name
-            r'From[\s\n]+([A-Za-z][A-Za-z\s]+)',  # From Name
-            r'Credited by[\s\n]+([A-Za-z][A-Za-z\s]+)',  # Credited by Name
+            r'Received from[\s\n]+([A-Za-z][A-Za-z\s&\.]+)',  # Received from Name
+            r'From[\s\n]+([A-Za-z][A-Za-z\s&\.]+)',  # From Name
+            r'Credited by[\s\n]+([A-Za-z][A-Za-z\s&\.]+)',  # Credited by Name
         ]
     else:  # debit
         name_patterns = [
-            r'Paid to[\s\n]+([A-Za-z][A-Za-z\s]+)',  # Paid to Name
-            r'To[\s\n]+([A-Za-z][A-Za-z\s]+)',  # To Name
+            r'Paid to[\s\n]+([A-Za-z][A-Za-z\s&\.]+)',  # Paid to Name
+            r'To[\s\n]+([A-Za-z][A-Za-z\s&\.]+)',  # To Name
+            r'(?:^|\n)([A-Z][A-Z\s&\.]{3,}(?:LIMITED|LTD|PRIVATE|PVT|COMPANY|CO|CORP|INC)?)',  # Company names
         ]
     
     for pattern in name_patterns:
         name_match = re.search(pattern, text, re.I | re.MULTILINE)
         if name_match:
             extracted_name = name_match.group(1).strip()
+            
+            # Advanced name cleaning
+            # Remove common OCR artifacts at the beginning
+            extracted_name = re.sub(r'^[^A-Za-z]*', '', extracted_name)  # Remove leading non-letters
+            extracted_name = re.sub(r'^(rh|th|lh|ih)\s+', '', extracted_name, flags=re.I)  # Remove OCR artifacts like "rh"
+            
             # Clean up the name
-            extracted_name = re.sub(r'\s+', ' ', extracted_name)
-            # Stop at first newline or special character
-            extracted_name = extracted_name.split('\n')[0].strip()
-            # Remove any numbers (amounts, phone numbers)
+            extracted_name = re.sub(r'\s+', ' ', extracted_name)  # Multiple spaces to single
+            extracted_name = extracted_name.split('\n')[0].strip()  # Stop at first newline
+            
+            # Remove trailing OCR artifacts
+            extracted_name = re.sub(r'\s+(Sa|ot|at|et|it|ut)$', '', extracted_name, flags=re.I)  # Remove trailing artifacts
+            
+            # Remove any numbers (amounts, phone numbers, IDs)
             extracted_name = re.sub(r'\d+[,\d]*', '', extracted_name).strip()
-            # Remove trailing punctuation
+            
+            # Remove trailing punctuation and artifacts
             extracted_name = re.sub(r'[\W]+$', '', extracted_name).strip()
-            # Remove leading/trailing spaces
+            
+            # Remove leading/trailing spaces and ensure proper case
             extracted_name = extracted_name.strip()
             
-            if len(extracted_name) > 1 and not extracted_name.isdigit():
-                details['name'] = extracted_name
-                print(f"👤 Found name: {extracted_name}")
-                break
+            # Additional cleaning for company names
+            if len(extracted_name) > 2:
+                # Fix common OCR issues in company names
+                extracted_name = re.sub(r'\bLIMITED\b', 'LIMITED', extracted_name, flags=re.I)
+                extracted_name = re.sub(r'\bPRIVATE\b', 'PRIVATE', extracted_name, flags=re.I)
+                extracted_name = re.sub(r'\bLTD\b', 'LTD', extracted_name, flags=re.I)
+                
+                # Ensure it's not just artifacts
+                if len(extracted_name) > 2 and not extracted_name.isdigit() and not re.match(r'^[^A-Za-z]+$', extracted_name):
+                    details['name'] = extracted_name
+                    print(f"👤 Found name: {extracted_name}")
+                    break
 
     if not details['name']:
         print("❓ No name pattern matched")
+        
+        # Fallback: look for any capitalized words that might be company names
+        company_words = re.findall(r'\b[A-Z][A-Z\s&]{2,}(?:LIMITED|LTD|PRIVATE|PVT|COMPANY|CO)?\b', text)
+        for company in company_words:
+            cleaned = re.sub(r'^(rh|th|lh|ih)\s+', '', company, flags=re.I).strip()
+            cleaned = re.sub(r'\s+(Sa|ot|at|et|it|ut)$', '', cleaned, flags=re.I).strip()
+            if len(cleaned) > 3 and not re.search(r'\d', cleaned):
+                details['name'] = cleaned
+                print(f"👤 Found fallback company name: {cleaned}")
+                break
 
     # Categorize transaction based on keywords
     categories = {
