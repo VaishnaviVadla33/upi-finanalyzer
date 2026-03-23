@@ -46,25 +46,45 @@ app.secret_key = os.getenv('SECRET_KEY', 'finanalyzer_secret_key_2024')
 
 # ── Firebase ──────────────────────────────────────────────────────────────────
 load_dotenv()
-firebase_key_path = os.getenv('FIREBASE_KEY_PATH', 'FIREBASE_CREDENTIALS.json')
 
 try:
-    # Try to load from environment variable first (for deployment)
-    firebase_creds_json = os.getenv('FIREBASE_CREDENTIALS_JSON')
-    if firebase_creds_json:
-        import json
+    # Method 1: Try Render Secret File first (production)
+    secret_file_path = "/etc/secrets/FIREBASE_CREDENTIALS.json"
+    if os.path.exists(secret_file_path):
+        print(f"✅ Found Firebase credentials at: {secret_file_path}")
+        cred = credentials.Certificate(secret_file_path)
+        firebase_admin.initialize_app(cred)
+        db = firestore.client()
+        print("✅ Firebase initialized from Secret File")
+    
+    # Method 2: Try environment variable (backup)
+    elif os.getenv('FIREBASE_CREDENTIALS_JSON'):
+        print("🔄 Trying Firebase credentials from environment variable")
+        firebase_creds_json = os.getenv('FIREBASE_CREDENTIALS_JSON')
         cred_dict = json.loads(firebase_creds_json)
+        # Fix newline escaping in private key
+        if 'private_key' in cred_dict:
+            cred_dict['private_key'] = cred_dict['private_key'].replace('\\n', '\n')
         cred = credentials.Certificate(cred_dict)
         firebase_admin.initialize_app(cred)
         db = firestore.client()
-    elif os.path.exists(firebase_key_path):
-        # Fallback to file (for local development)
-        cred = credentials.Certificate(firebase_key_path)
-        firebase_admin.initialize_app(cred)
-        db = firestore.client()
+        print("✅ Firebase initialized from environment variable")
+    
+    # Method 3: Try local file (development)
     else:
-        db = None
+        firebase_key_path = os.getenv('FIREBASE_KEY_PATH', 'FIREBASE_CREDENTIALS.json')
+        if os.path.exists(firebase_key_path):
+            print(f"✅ Found local Firebase credentials at: {firebase_key_path}")
+            cred = credentials.Certificate(firebase_key_path)
+            firebase_admin.initialize_app(cred)
+            db = firestore.client()
+            print("✅ Firebase initialized from local file")
+        else:
+            print("❌ No Firebase credentials found")
+            db = None
+            
 except Exception as e:
+    print(f"❌ Firebase initialization failed: {str(e)}")
     db = None
 
 if db:
@@ -286,23 +306,47 @@ def health_check():
             'status': 'healthy',
             'timestamp': datetime.now().isoformat(),
             'tesseract': False,
-            'firebase': False
+            'firebase': False,
+            'firebase_method': 'none',
+            'debug_info': {}
         }
         
         # Check Tesseract
         try:
             pytesseract.get_tesseract_version()
             checks['tesseract'] = True
-        except:
-            pass
+        except Exception as e:
+            checks['debug_info']['tesseract_error'] = str(e)
             
-        # Check Firebase connection
+        # Check Firebase connection with detailed info
         try:
-            if 'db' in globals():
-                db.collection('health_check').limit(1).get()
+            if 'db' in globals() and db is not None:
+                # Try a simple database operation
+                test_collection = db.collection('health_check')
+                test_collection.limit(1).get()
                 checks['firebase'] = True
-        except:
-            pass
+                
+                # Determine which method was used
+                if os.path.exists("/etc/secrets/FIREBASE_CREDENTIALS.json"):
+                    checks['firebase_method'] = 'secret_file'
+                elif os.getenv('FIREBASE_CREDENTIALS_JSON'):
+                    checks['firebase_method'] = 'env_variable'
+                elif os.path.exists('FIREBASE_CREDENTIALS.json'):
+                    checks['firebase_method'] = 'local_file'
+                else:
+                    checks['firebase_method'] = 'unknown'
+            else:
+                checks['debug_info']['firebase_error'] = 'db is None or not initialized'
+                
+        except Exception as e:
+            checks['debug_info']['firebase_error'] = str(e)
+            
+        # Add file existence checks for debugging
+        checks['debug_info']['files'] = {
+            'secret_file_exists': os.path.exists("/etc/secrets/FIREBASE_CREDENTIALS.json"),
+            'local_file_exists': os.path.exists("FIREBASE_CREDENTIALS.json"),
+            'env_var_exists': bool(os.getenv('FIREBASE_CREDENTIALS_JSON'))
+        }
             
         return jsonify(checks), 200
     except Exception as e:
